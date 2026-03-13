@@ -7,8 +7,13 @@
 void app_main(void)
 {
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    printf("hello ChanSense\n");
+    
+    while (1)
+    {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        printf("Hello ChanSense\n");
+    }
+    
     
 
     
