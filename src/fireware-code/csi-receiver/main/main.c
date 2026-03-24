@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include "esp_log_level.h"
+#include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 #include "nvs_flash.h"
 
@@ -26,9 +27,10 @@
 #include "esp_netif.h"
 #include "esp_now.h"
 #include "esp_radar.h"
+#include "esp_task_wdt.h"
 #include "esp_wifi.h"
 #include "rom/ets_sys.h"
-#include "esp_task_wdt.h"
+
 
 #define CONFIG_LESS_INTERFERENCE_CHANNEL 11
 #if CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C61 ||                 \
@@ -61,13 +63,26 @@
 #define ESP_IF_WIFI_STA ESP_MAC_WIFI_STA
 #endif
 #define CONFIG_SEND_DATA_FREQUENCY 100
+#define IS_PRINT_GAIN_DATA 0
+
+
+
+
 static uint32_t g_send_data_interval = 1000 / CONFIG_SEND_DATA_FREQUENCY;
 static const uint8_t CONFIG_CSI_SEND_MAC[] = {0x1a, 0x00, 0x00,
                                               0x00, 0x00, 0x00};
 
-QueueHandle_t csi_queue;                                              
+QueueHandle_t g_csi_recv_queue;
 static const char *TAG = "csi_recv";
 static bool g_putout_flag = false;
+static uint32_t g_csi_package_count = 0;
+
+typedef struct {
+  uint32_t index;
+  uint8_t len;
+  int8_t data[];
+} csi_package_t;
+
 static void wifi_init() {
   ESP_ERROR_CHECK(esp_event_loop_create_default());
   ESP_ERROR_CHECK(esp_netif_init());
@@ -239,83 +254,46 @@ static void wifi_csi_rx_cb(void *ctx, wifi_csi_info_t *info) {
   }
 #endif
 
-
   ets_printf("]\"\n");
   s_count++;
-  vTaskDelay(pdMS_TO_TICKS(500));
-  printf("len: %d\n", info->len);
-  printf("data: \n{");
-  for (int i = 0; i < info->len; i++) {
-    printf("%d,", info->buf[i]);
-  }
-  printf("}\n");
-
 }
 
 void set_putout_flag() {
-  while (1)
-  { 
-    
+  while (1) {
+
     // 500ms反转一次
     vTaskDelay(pdMS_TO_TICKS(500));
     g_putout_flag = !g_putout_flag;
-
-    
   }
+}
+
+void temp_callback(void *ctx, wifi_csi_info_t *info) {
+  
+#if IS_PRINT_GAIN_DATA
+  float compensate_gain = 1.0f;
+  static uint8_t agc_gain = 0;
+  static int8_t fft_gain = 0;
+  
+  esp_csi_gain_ctrl_get_gain_compensation(&compensate_gain, agc_gain,
+                                          fft_gain); // 各种增益补偿计算
+  //ESP_LOGI(TAG, "compensate_gain %f, agc_gain %d, fft_gain %d", compensate_gain,agc_gain, fft_gain);
+
+  //ESP_LOGI(TAG, "info.len: %d", info->len);
+#endif  
+  g_csi_package_count++;
+  
+  ets_printf("index:%d data:[", g_csi_package_count);
+  for (int i = 0; i < info->len; i++) {
+      ets_printf("%d,", info->buf[i]);   //元数据
+      //数据意义：除前面几个之外其他都是复数对(I,Q) 参考
+
+      //https://chat.deepseek.com/share/k0vn79mavtjq9dn3rn
+      //强烈补习信号与系统
+  }
+  printf("]\n");  
   
 }
 
-void temp_callback(void *ctx, wifi_csi_info_t *info)
-{
-    
-
-      float compensate_gain = 1.0f;
-      static uint8_t agc_gain = 0;
-      static int8_t fft_gain = 0;
-      esp_csi_gain_ctrl_get_gain_compensation(&compensate_gain, agc_gain, fft_gain);   //各种增益补偿计算
-      ESP_LOGI(TAG, "compensate_gain %f, agc_gain %d, fft_gain %d", compensate_gain,
-           agc_gain, fft_gain);
-      vTaskDelay(pdMS_TO_TICKS(100));
-      printf("info.len: %d\n", info->len);
-      printf("data: \n{");
-      for (int i = 0; i < info->len; i++) {
-          printf("%d,", info->buf[i]);   //元数据 
-      }
-      printf("}\n");
-      
-
-    
-    
-}
-
-
-void csi_task(void *arg)
-{
-    wifi_csi_info_t info;
-    uint16_t count = 0;
-    while (1) {
-        count++;
-        if (count < 100 ) {
-            continue;
-        }
-        else{
-          count = 0;
-          
-        }
-        if (xQueueReceive(csi_queue, &info, portMAX_DELAY)) {
-
-            ets_printf("len: %d\n", info.len);
-
-            for (int i = 0; i < info.len; i++) {
-                ets_printf("%d,", info.buf[i]);
-            }
-            ets_printf("\n");
-
-            free(info.buf);
-        }
-        vTaskDelay(pdMS_TO_TICKS(5));
-    }
-}
 
 static void wifi_csi_init() {
   ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
@@ -366,12 +344,12 @@ static void wifi_csi_init() {
 }
 
 void app_main() {
-  csi_queue = xQueueCreate(10, sizeof(wifi_csi_info_t));
+  g_csi_recv_queue = xQueueCreate(64, sizeof(void *));
   /**
    * @brief Initialize NVS
    */
-  
-  //esp_task_wdt_add(NULL);
+
+  // esp_task_wdt_add(NULL);
   esp_err_t ret = nvs_flash_init();
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
       ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -400,5 +378,5 @@ void app_main() {
 
   wifi_esp_now_init(peer);
   wifi_csi_init();
-  //xTaskCreate(csi_task, "csi_task", 4096, NULL, 5, NULL);
+  
 }
