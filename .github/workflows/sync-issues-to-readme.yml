@@ -1,0 +1,57 @@
+name: Sync Issues to README
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled, closed, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch Issues
+        id: issues
+        run: |
+          curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues?labels=task&state=open" \
+            > issues.json
+
+      - name: Generate Markdown
+        run: |
+          echo "## 📌 当前任务列表" > issues.md
+          echo "" >> issues.md
+
+          cat issues.json | jq -r '.[] | "- [#\(.number)](\(.html_url)) \(.title)"' >> issues.md
+
+      - name: Inject into README
+        run: |
+          awk '
+          BEGIN {p=1}
+          /<!-- ISSUE-LIST:START -->/ {
+            print;
+            system("cat issues.md");
+            p=0;
+            next
+          }
+          /<!-- ISSUE-LIST:END -->/ {p=1}
+          p
+          ' README.md > README.new.md
+
+          mv README.new.md README.md
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add README.md
+          git commit -m "auto: update issue list" || echo "No changes"
+          git push
