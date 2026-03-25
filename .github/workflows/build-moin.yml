@@ -1,0 +1,44 @@
+name: Build Firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "src/fireware-code/**"
+  pull_request:
+    paths:
+      - "src/fireware-code/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: esp32p4
+            project: src/firmware-code/motion-inference
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build with ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5.3
+          target: ${{ matrix.target }}
+          path: ${{ matrix.project }}
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.target }}
+          path: |
+            ${{ matrix.project }}/build/*.bin
+          if-no-files-found: warn
+          retention-days: 7
