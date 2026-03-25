@@ -14,6 +14,8 @@ static const char *TAG = "P4_UART";
 #define BUF_SIZE           1024
 #define BAUD_RATE          115200
 
+///// UART初始化
+
 void uart_init(void)
 {
     uart_config_t uart_config = {
