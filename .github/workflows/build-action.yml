@@ -19,13 +19,13 @@ jobs:
       matrix:
         include:
           - target: esp32c6
-            project: src/fireware-code/csi-receiver
+            project: src/firmware-code/csi-receiver
 
           - target: esp32s3
-            project: src/fireware-code/csi-sender
+            project: src/firmware-code/csi-sender
             
           - target: esp32p4
-            project: src/fireware-code/motion-inference
+            project: src/firmware-code/motion-inference
 
     steps:
       - name: Checkout repo
