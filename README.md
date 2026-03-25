@@ -3,5 +3,6 @@ ChanSense — Human pose and gesture recognition using Wi‑Fi Channel State Inf
 
 ---
 <!-- ISSUE-LIST:START -->
-暂无issues
+## 📌 当前任务列表
+
 <!-- ISSUE-LIST:END -->
