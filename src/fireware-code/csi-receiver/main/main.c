@@ -295,6 +295,8 @@ void temp_callback(void *ctx, wifi_csi_info_t *info) {
 }
 
 
+
+
 static void wifi_csi_init() {
   ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
 
