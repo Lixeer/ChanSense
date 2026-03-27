@@ -1,4 +1,2 @@
-idf_component_register(SRCS "main.c"
-                       PRIV_REQUIRES spi_flash esp_event esp_wifi nvs_flash mbedtls 
-              
-)
+idf_component_register(SRC_DIRS "."
+                       INCLUDE_DIRS ".")
