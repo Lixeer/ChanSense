@@ -55,12 +55,16 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
+      - name: Install Frontend Dependencies
+        working-directory: frontend # 确保路径指向你的前端文件夹
+        run: |
+          npm install --force
       # 5. 构建应用
       # -ns: 不生成符号表 (减小体积)
       # -platform: 指定平台
       - name: Build Wails App
         run: |
-          wails build -platform ${{ matrix.platform }}
+          wails build -platform ${{ matrix.platform }} -skipfrontend
 
       # 6. 上传构建产物 (Artifacts)
       - name: Upload Artifacts
