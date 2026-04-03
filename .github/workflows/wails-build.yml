@@ -8,59 +8,39 @@ on:
       - "v*" # 或者是当你打出 v1.0 这种标签时触发
   workflow_dispatch: # 允许你手动在 GitHub 页面点击运行
 
+env:
+  # Necessary for most environments as build failure can occur due to OOM issues
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
 jobs:
   build:
     strategy:
+      # Failure in one platform build won't impact the others
+      fail-fast: false
       matrix:
-        # 可以同时构建 Windows 和 MacOS 版本
-        os: [windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+        build:
+          - name: "App"
+            platform: "linux/amd64"
+            os: "ubuntu-latest"
+          - name: "App"
+            platform: "windows/amd64"
+            os: "windows-latest"
+          - name: "App"
+            platform: "darwin/universal"
+            os: "macos-latest"
 
+    runs-on: ${{ matrix.build.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # 1. 安装 Go 环境
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
-          go-version: "1.23.0" # 根据你的 wails 要求调整
+          submodules: recursive
 
-      # 2. 安装 Node.js 环境 (用于构建前端 Vue)
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Build wails
+        uses: dAppServer/wails-build-[email protected]
+        id: build
         with:
-          node-version: "20"
-
-      # 3. 安装 Wails 命令行工具
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      # 修复 oxc-parser 原生绑定问题
-      - name: Clean and install frontend dependencies
-        run: |
-          cd frontend
-          rm -rf node_modules package-lock.json pnpm-lock.yaml
-          pnpm install
-
-      # 4. 安装依赖并构建
-      # 注意：如果你的 wails 项目就在根目录，不需要 cd
-      - name: Build Wails App
-        run: |
-          wails build
-
-      # 5. 自动上传到 GitHub Release
-      - name: Release Artifacts
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') # 只有打 Tag 时才真正创建 Release
-        with:
-          files: |
-            build/bin/*.exe
-            build/bin/*.app
-            build/bin/*.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          build-name: ${{ matrix.build.name }}
+          build-platform: ${{ matrix.build.platform }}
+          package: false
+          go-version: "1.20"
