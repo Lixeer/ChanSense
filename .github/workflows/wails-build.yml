@@ -30,18 +30,22 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
 
       # 3. 安装 Wails 命令行工具
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
       # 修复 oxc-parser 原生绑定问题
       - name: Clean and install frontend dependencies
         run: |
           cd frontend
-          rm -rf node_modules package-lock.json
-          npm install
+          rm -rf node_modules package-lock.json pnpm-lock.yaml
+          pnpm install
 
       # 4. 安装依赖并构建
       # 注意：如果你的 wails 项目就在根目录，不需要 cd
