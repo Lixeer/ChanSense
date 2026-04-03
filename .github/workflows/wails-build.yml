@@ -59,6 +59,9 @@ jobs:
         working-directory: frontend # 确保路径指向你的前端文件夹
         run: |
           npm install --force
+          cd frontend
+          rm -rf node_modules package-lock.json
+          npm install
 
       # 5. 构建应用
       # -ns: 不生成符号表 (减小体积)
