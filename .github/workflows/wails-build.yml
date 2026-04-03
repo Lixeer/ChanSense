@@ -36,6 +36,13 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
+      # 修复 oxc-parser 原生绑定问题
+      - name: Clean and install frontend dependencies
+        run: |
+          cd frontend
+          rm -rf node_modules package-lock.json
+          npm install
+
       # 4. 安装依赖并构建
       # 注意：如果你的 wails 项目就在根目录，不需要 cd
       - name: Build Wails App
