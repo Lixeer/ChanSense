@@ -1,6 +1,7 @@
 dependencies:
   espressif/cmake_utilities:
-    component_hash: 351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
+    component_hash: 
+      351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
     dependencies:
     - name: idf
       require: private
@@ -10,7 +11,8 @@ dependencies:
       type: service
     version: 0.5.3
   espressif/esp_csi_gain_ctrl:
-    component_hash: 2700b6625343916dfb721af42131857b3e387dbbb9cc1df569128525c8b05f8e
+    component_hash: 
+      2700b6625343916dfb721af42131857b3e387dbbb9cc1df569128525c8b05f8e
     dependencies:
     - name: espressif/cmake_utilities
       registry_url: https://components.espressif.com
@@ -39,5 +41,5 @@ direct_dependencies:
 - espressif/esp_csi_gain_ctrl
 - idf
 manifest_hash: 87913d9ddf49274d8497c01da1b8395791fe1496972030983f553b70629233b3
-target: esp32c6
+target: esp32s3
 version: 2.0.0
