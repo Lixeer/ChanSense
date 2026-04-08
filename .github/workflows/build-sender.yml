@@ -1,4 +1,4 @@
-name: Build Firmware esp32s3
+name: Build csi-sender firmware
 
 on:
   workflow_run:

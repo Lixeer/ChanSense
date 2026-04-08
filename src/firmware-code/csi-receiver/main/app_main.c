@@ -61,6 +61,7 @@
 #define PMK "pmk20051027"
 static const uint8_t CONFIG_CSI_SEND_MAC[] = {0x1a, 0x00, 0x00, 0x00, 0x00, 0x00};
 static const char *TAG = "csi_recv";
+
 static uint32_t g_csi_package_count = 0;
 
 static void wifi_init()

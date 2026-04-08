@@ -1,4 +1,4 @@
-name: Build Firmware esp32c6
+name: Build csi-receiver firmware
 
 on:
   workflow_run:
