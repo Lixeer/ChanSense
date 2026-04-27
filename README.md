@@ -1,11 +1,6 @@
+![ChanSense](https://socialify.git.ci/Lixeer/ChanSense/image?custom_language=C&font=KoHo&forks=1&language=1&name=1&owner=1&pattern=Brick+Wall&stargazers=1&theme=Auto)
+
 # ChanSense
-ChanSense — Human pose and gesture recognition using Wi‑Fi Channel State Information (CSI)
+基于 ESP32 系列 SoC 的 Wi-Fi CSI 数据采集与分析框架。集成信号预处理、特征提取及边缘端 AI 推理，实现手势识别、人体身份识别及环境感知/An ESP32-based Wi-Fi CSI sensing framework integrating data acquisition, signal preprocessing, feature extraction, and edge AI inference for gesture recognition, human identification, and environmental perception.
 
----
-<!-- ISSUE-LIST:START -->
-## 📌 当前任务列表
 
-- [#6](https://github.com/Lixeer/ChanSense/issues/6) [Task]使用 `Savitzky-Golay filter`对采集信号进行处理
-- [#5](https://github.com/Lixeer/ChanSense/issues/5) [Task]文档编写
-- [#4](https://github.com/Lixeer/ChanSense/issues/4) [Task]PC上CSI数据处理工具
-<!-- ISSUE-LIST:END -->
