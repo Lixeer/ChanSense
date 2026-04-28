@@ -11,6 +11,7 @@
 <img src="https://img.shields.io/badge/WIFI CSI  Support-esp32c5%2C%20esp32c6%2C%20esp32s3-blue" alt="Suppport">
 <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 
----
 English | [简体中文](README_zh-cn.md)  
+
 </div>
+---
