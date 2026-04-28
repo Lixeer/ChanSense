@@ -1,5 +1,2 @@
-![ChanSense](https://socialify.git.ci/Theseus-Core/ChanSense/image?custom_language=C&font=KoHo&forks=1&language=1&name=1&owner=1&pattern=Brick+Wall&stargazers=1&theme=Auto)
-
-# ChanSense
-基于 ESP32 系列 SoC 的 Wi-Fi CSI 数据采集与分析框架。集成信号预处理、特征提取及边缘端 AI 推理，实现手势识别、人体身份识别及环境感知/An ESP32-based Wi-Fi CSI sensing framework integrating data acquisition, signal preprocessing, feature extraction, and edge AI inference for gesture recognition, human identification, and environmental perception.
+![DaedalusLoom](https://socialify.git.ci/Theseus-Core/DaedalusLoom/image?custom_description=An+ESP32-based+Wi-Fi+CSI+sensing+framework+integrating+data+acquisition%2C+signal+preprocessing%2C+feature+extraction%2C+and+edge+AI+inference+for+gesture+recognition%2C+human+identification%2C+and+environmental+perception.&custom_language=C&description=1&font=KoHo&forks=1&issues=1&language=1&name=1&owner=1&pattern=Brick+Wall&pulls=1&stargazers=1&theme=Auto)
 
