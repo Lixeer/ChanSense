@@ -41,5 +41,5 @@ direct_dependencies:
 - espressif/esp_csi_gain_ctrl
 - idf
 manifest_hash: 87913d9ddf49274d8497c01da1b8395791fe1496972030983f553b70629233b3
-target: esp32s3
+target: esp32c5
 version: 2.0.0
