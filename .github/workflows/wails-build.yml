@@ -68,7 +68,7 @@ jobs:
       # -platform: 指定平台
       - name: Build Wails App
         run: |
-          wails build -platform ${{ matrix.platform }}
+          wails build -platform ${{ matrix.platform }} -tags webkit2gtk_4.1
 
       # 6. 上传构建产物 (Artifacts)
       - name: Upload Artifacts
