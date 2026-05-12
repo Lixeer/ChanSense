@@ -1,110 +1,73 @@
 <template>
-  <div>
-    <section flex justify-center gap-4 items-end bg-white p-5 text-black shadow-sm border="1 gray-100">
-      <div flex flex-col gap-1>
-        <label text-xs font-bold text-gray-400 uppercase tracking-wider>Serial Port</label>
-        <input
-          v-model="state.name"
-          type="text"
-          placeholder="e.g. COM4"
-          border="1 gray-200"
-          rounded-md
-          px-3
-          py-2
-          w-36
-          focus:ring-2
-          focus:ring-blue-500
-          outline-none
-          transition-all
-        />
-      </div>
+  <div class="flex flex-row text-black h-screen overflow-hidden">
+    <aside class="p-4 flex border-r-2">
+      <div class="flex flex-col gap-4 w-64 h-full">
+        <div class="flex gap-2">
+          <label class="">Serial Port</label>
+          <input class="border w-32" v-model="state.name" placeholder="e.g. COM4" />
+        </div>
 
-      <div flex flex-col gap-1>
-        <label text-xs font-bold text-gray-400 uppercase tracking-wider>Baud Rate</label>
-        <input
-          v-model="state.baud"
-          type="number"
-          placeholder="115200"
-          border="1 gray-200"
-          rounded-md
-          px-3
-          py-2
-          w-36
-          focus:ring-2
-          focus:ring-blue-500
-          outline-none
-          transition-all
-        />
-      </div>
+        <div class="flex gap-2">
+          <label class="">Baud Rate</label>
+          <select class="border w-32" name="" id="" v-model="state.baud">
+            <option value="9600">9600</option>
+            <option value="19200">19200</option>
+            <option value="38400">38400</option>
+            <option value="57600">57600</option>
+            <option value="115200" selected>115200</option>
+          </select>
+        </div>
 
-      <button
-        px-5
-        py-2
-        bg-blue-600
-        text-white
-        rounded-md
-        font-medium
-        hover:bg-blue-700
-        active:scale-95
-        transition-all
-        @click="handleUpdate"
-      >
-        应用配置
-      </button>
+        <div class="flex justify-between gap-2">
+          <button class="border w-full rounded hover:bg-gray-200 active:bg-gray-300" @click="handleUpdate">
+            应用配置
+          </button>
+          <button class="border w-full rounded hover:bg-gray-200 active:bg-gray-300" @click="handleReconnect">
+            重新连接
+          </button>
+        </div>
 
-      <button
-        px-5
-        py-2
-        border="1 blue-600"
-        text-blue-600
-        rounded-md
-        font-medium
-        hover:bg-blue-50
-        active:scale-95
-        transition-all
-        @click="handleReconnect"
-      >
-        重新连接
-      </button>
-
-      <div p-4 rounded-lg border="1 dashed gray-200" flex flex-col justify-center>
-        <span text-xs text-gray-400>连接状态</span>
-        <div flex items-center gap-2 mt-1>
-          <div w-2 h-2 rounded-full :class="state.isConnected ? 'bg-green-500' : 'bg-red-400'"></div>
-          <span font-mono font-bold :class="state.isConnected ? 'text-green-700' : 'text-gray-500'">
-            {{ goLog }}
-          </span>
+        <div class="flex flex-col justify-center">
+          <span class="">连接状态</span>
+          <div class="flex items-center gap-1">
+            <div class="w-2 h-2 rounded-full" :class="state.isConnected ? 'bg-green-500' : 'bg-red-400'"></div>
+            <span class="font-mono font-bold" :class="state.isConnected ? 'text-green-700' : 'text-gray-700'">
+              {{ goLog }}
+            </span>
+          </div>
         </div>
       </div>
-    </section>
-    <h2>CSI 数据监控</h2>
-    <div>RSSI: {{ csiData.rssi }}</div>
-    <div>Index: {{ csiData.index }}</div>
-    <div>子载波数量: {{ csiData.amplitude?.length }}</div>
+    </aside>
+    <main class="flex-1 overflow-y-auto">
+      <h2>CSI 数据监控</h2>
+      <div>RSSI: {{ csiData.rssi }}</div>
+      <div>Index: {{ csiData.index }}</div>
+      <div>子载波数量: {{ csiData.amplitude?.length }}</div>
 
-    <!-- 幅度图表 -->
-    <div class="chart-container" wfull flex flex-col gap-2 justify-center items-center>
-      <h3>幅度 (Amplitude)</h3>
-      <canvas ref="amplitudeChart" width="800" height="200"></canvas>
-    </div>
+      <!-- 幅度图表 -->
+      <div class="chart-container wfull flex flex-col gap-2 justify-center items-center">
+        <h3>幅度 (Amplitude)</h3>
+        <canvas ref="amplitudeChart" width="800" height="200"></canvas>
+      </div>
 
-    <!-- 相位折线图 -->
-    <div class="chart-container" wfull flex flex-col gap-2 justify-center items-center>
-      <h3>相位 (Phase)</h3>
-      <canvas ref="phaseChart" width="800" height="200"></canvas>
-    </div>
+      <!-- 相位折线图 -->
+      <div class="chart-container" wfull flex flex-col gap-2 justify-center items-center>
+        <h3>相位 (Phase)</h3>
+        <canvas ref="phaseChart" width="800" height="200"></canvas>
+      </div>
 
-    <!-- 相位差图 -->
-    <div class="chart-container" wfull flex flex-col gap-2 justify-center items-center>
-      <h3>相位差 (Phase Difference) - 与上一帧对比</h3>
-      <canvas ref="phaseDiffChart" width="800" height="200"></canvas>
-    </div>
+      <!-- 相位差图 -->
+      <div class="chart-container" wfull flex flex-col gap-2 justify-center items-center>
+        <h3>相位差 (Phase Difference) - 与上一帧对比</h3>
+        <canvas ref="phaseDiffChart" width="800" height="200"></canvas>
+      </div>
 
-    <!-- 相位极坐标图 -->
-    <div class="chart-container" wfull flex flex-col gap-2 justify-center items-center>
-      <h3>相位极坐标 (Polar)</h3>
-      <canvas ref="polarChart" width="400" height="400"></canvas>
-    </div>
+      <!-- 相位极坐标图 -->
+      <div class="chart-container" wfull flex flex-col gap-2 justify-center items-center>
+        <h3>相位极坐标 (Polar)</h3>
+        <canvas ref="polarChart" width="400" height="400"></canvas>
+      </div>
+    </main>
   </div>
 </template>
 

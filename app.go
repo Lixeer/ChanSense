@@ -52,6 +52,7 @@ func (a *App) startup(ctx context.Context) {
 
 // Reconnect 串口连接
 func (a *App) Reconnect() {
+	runtime.EventsEmit(a.ctx, "connection-status", "等待串口停止")
 	a.mu.Lock()
 	// 1. 如果已有协程在运行，先停止它
 	if a.cancelFunc != nil {
