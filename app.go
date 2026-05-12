@@ -23,15 +23,13 @@ type App struct {
 	mu           sync.Mutex
 }
 type CSIFrame struct {
-	Rssi      int       `json:"rssi"`
 	Index     int       `json:"index"`
-	Len       int       `json:"len"`
-	Raw       []int     `json:"raw"`       // 256个原始整数
+	Raw       []int16   `json:"raw"`       // 256个原始整数
 	Amplitude []float64 `json:"amplitude"` // 幅度
 	Phase     []float64 `json:"phase"`     // 相位
 }
 
-var csiRegex = regexp.MustCompile(`rssi:(-?\d+)\s+index:(\d+)\s+len:(\d+)\s+data:\[(.*?)\]`)
+var csiRegex = regexp.MustCompile(`index:(\d+).*?data:\[(.*?)\]`)
 
 var config = &serial.Config{
 	Name:        "COM4",
@@ -52,18 +50,13 @@ func (a *App) startup(ctx context.Context) {
 	a.Reconnect()
 }
 
-// Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("你好 Hello %s, It's show time!", name)
-}
-
 // Reconnect 串口连接
 func (a *App) Reconnect() {
 	a.mu.Lock()
 	// 1. 如果已有协程在运行，先停止它
 	if a.cancelFunc != nil {
 		a.cancelFunc()
-		time.Sleep(2 * time.Second) // 给一点时间让旧串口完成释放
+		time.Sleep(1 * time.Second) // 给一点时间让旧串口完成释放
 	}
 
 	// 2. 创建新的 Context
@@ -111,8 +104,8 @@ func (a *App) readSerial(ctx context.Context) {
 				runtime.LogWarningf(a.ctx, "解析失败: %v | 原始: %s", err, line[:min(len(line), 50)])
 				continue
 			}
-			runtime.LogInfof(a.ctx, "解析成功: RSSI=%d, Index=%d, 子载波=%d个",
-				frame.Rssi, frame.Index, len(frame.Amplitude))
+			runtime.LogInfof(a.ctx, "解析成功: Index=%d, 子载波=%d个",
+				frame.Index, len(frame.Amplitude))
 			runtime.EventsEmit(a.ctx, "csi-data", frame)
 		}
 	}
@@ -123,11 +116,10 @@ func parseCSI(line string) (*CSIFrame, error) {
 	if matches == nil {
 		return nil, fmt.Errorf("格式不匹配")
 	}
-	rssi, _ := strconv.Atoi(matches[1])
-	index, _ := strconv.Atoi(matches[2])
-	length, _ := strconv.Atoi(matches[3])
-	dataStr := matches[4]
-	raw := []int{}
+	index, _ := strconv.Atoi(matches[1])
+	dataStr := matches[2]
+	count := strings.Count(dataStr, ",") + 1
+	raw := make([]int16, 0, count)
 	for _, s := range strings.Split(dataStr, ",") {
 		s = strings.TrimSpace(s)
 		if s == "" {
@@ -137,12 +129,10 @@ func parseCSI(line string) (*CSIFrame, error) {
 		if err != nil {
 			continue
 		}
-		raw = append(raw, val)
+		raw = append(raw, int16(val))
 	}
 	frame := &CSIFrame{
-		Rssi:  rssi,
 		Index: index,
-		Len:   length,
 		Raw:   raw,
 	}
 	// 计算幅度和相位 (实部, 虚部交替)
