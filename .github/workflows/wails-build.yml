@@ -31,20 +31,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. 安装 Go 环境
+      # 安装 Go 环境
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.23" # 根据你的 wails.json 建议版本调整
           check-latest: true
 
-      # 2. 安装 Node.js (用于构建前端)
+      # 安装 Node.js (用于构建前端)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # 3. 安装 Linux 依赖 (仅在 Ubuntu 运行)
+      # 安装 Linux 依赖 (仅在 Ubuntu 运行)
       - name: Install Linux Dependencies
         if: runner.os == 'Linux'
         run: |
@@ -52,25 +52,25 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev || sudo apt-get install -y libwebkit2gtk-4.0-dev
           sudo apt-get install -y build-essential pkg-config
 
-      # 4. 安装 Wails CLI
+      # 安装 pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false # 这一步只安装工具，由 Wails 处理依赖
+
+      # 安装 Wails CLI
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      # - name: Install Frontend Dependencies
-      #   working-directory: frontend # 确保路径指向你的前端文件夹
-      #   run: |
-      #     npm install --force
-      #     rm -rf node_modules package-lock.json
-      #     npm install
-
-      # 5. 构建应用
+      # 构建应用
       # -ns: 不生成符号表 (减小体积)
       # -platform: 指定平台
       - name: Build Wails App
         run: |
           wails build -platform ${{ matrix.platform }} -tags webkit2_41
 
-      # 6. 上传构建产物 (Artifacts)
+      # 上传构建产物 (Artifacts)
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
