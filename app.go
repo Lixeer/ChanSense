@@ -30,9 +30,10 @@ type CSIFrame struct {
 }
 
 var csiRegex = regexp.MustCompile(`index:(\d+).*?data:\[(.*?)\]`)
+var csiRegexData = regexp.MustCompile(`data:\[(.*?)\]`)
 
 var config = &serial.Config{
-	Name:        "COM4",
+	Name:        "COM35",
 	Baud:        115200,
 	ReadTimeout: time.Second * 1,
 }
@@ -105,20 +106,19 @@ func (a *App) readSerial(ctx context.Context) {
 				runtime.LogWarningf(a.ctx, "解析失败: %v | 原始: %s", err, line[:min(len(line), 50)])
 				continue
 			}
-			runtime.LogInfof(a.ctx, "解析成功: Index=%d, 子载波=%d个",
-				frame.Index, len(frame.Amplitude))
+			// runtime.LogInfof(a.ctx, "解析成功: Index=%d, 子载波=%d个", frame.Index, len(frame.Amplitude))
 			runtime.EventsEmit(a.ctx, "csi-data", frame)
 		}
 	}
 }
 
 func parseCSI(line string) (*CSIFrame, error) {
-	matches := csiRegex.FindStringSubmatch(line)
+	matches := csiRegexData.FindStringSubmatch(line)
 	if matches == nil {
 		return nil, fmt.Errorf("格式不匹配")
 	}
-	index, _ := strconv.Atoi(matches[1])
-	dataStr := matches[2]
+	// index, _ := strconv.Atoi(matches[1])
+	dataStr := matches[1]
 	count := strings.Count(dataStr, ",") + 1
 	raw := make([]int16, 0, count)
 	for _, s := range strings.Split(dataStr, ",") {
@@ -133,7 +133,7 @@ func parseCSI(line string) (*CSIFrame, error) {
 		raw = append(raw, int16(val))
 	}
 	frame := &CSIFrame{
-		Index: index,
+		Index: 0, // index will be set to 0 since we're not parsing it
 		Raw:   raw,
 	}
 	// 计算幅度和相位 (实部, 虚部交替)
