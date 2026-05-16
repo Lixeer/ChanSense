@@ -16,10 +16,9 @@ const props = defineProps({
 const canvasRef = ref(null);
 
 const prevFrame = ref(null);
-const MAX_HISTORY = 800;
+const MAX_HISTORY = 200;
 const WIDTH = 800;
 const MAX_AMPLITUDE = 75;
-const AMPLITUDE_COUNT = ref(props.amplitude.length);
 onMounted(() => {
   const canvas = canvasRef.value;
   if (!canvas) return;
@@ -47,12 +46,12 @@ const draw = () => {
   ctx.fillStyle = "#1a1a1e";
   ctx.fillRect(w - step, 0, step, h);
 
-  for (let i = 0; i < AMPLITUDE_COUNT.value; i++) {
+  for (let i = 0; i < props.amplitude.length; i++) {
     ctx.beginPath();
     const val = props.amplitude[i];
     const prevVal = prevFrame.value[i] ?? 0;
-    const r = Math.floor((i / AMPLITUDE_COUNT.value) * 255);
-    const g = Math.floor((1 - i / AMPLITUDE_COUNT.value) * 255);
+    const r = Math.floor((i / props.amplitude.length) * 255 * 0.8);
+    const g = Math.floor((1 - i / props.amplitude.length) * 255);
     const color = `rgba(${r}, ${g}, 50, ${(val / MAX_AMPLITUDE) * 0.2})`;
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;

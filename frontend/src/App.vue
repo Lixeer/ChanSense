@@ -36,28 +36,43 @@
             </span>
           </div>
         </div>
+
+        <div class="flex flex-row flex-wrap gap-4">
+          <label v-for="item in componentOptions" :key="item.id" class="checkbox-label">
+            <input type="checkbox" :value="item.value" v-model="visibleComponents" />
+            <span>{{ item.label }}</span>
+          </label>
+        </div>
       </div>
     </aside>
     <main class="flex-1 overflow-y-auto gap-4 p-4 pb-32">
-      <h2>CSI 数据监控</h2>
-      <!-- <div>RSSI: {{ csiData.rssi }}</div> -->
-      <div>Index: {{ csiData.index }}</div>
-      <div>子载波数量: {{ csiData.amplitude?.length }}</div>
+      <div class="flex flex-col gap-8">
+        <div>
+          <h2>CSI 数据监控</h2>
+          <!-- <div>RSSI: {{ csiData.rssi }}</div> -->
+          <div>Index: {{ csiData.index }}</div>
+          <div>子载波数量: {{ csiData.amplitude?.length }}</div>
+        </div>
 
-      <!-- 幅度图表 -->
-      <Amplitude :amplitude="csiData.amplitude || []" />
+        <!-- 幅度图表 -->
+        <Amplitude :amplitude="csiData.amplitude || []" v-if="visibleComponents.includes('amplitude')" />
 
-      <!-- 相位折线图 -->
-      <Phase :phase="csiData.phase || []" />
+        <!-- 相位折线图 -->
+        <Phase :phase="csiData.phase || []" v-if="visibleComponents.includes('phase')" />
 
-      <!-- 相位差图 -->
-      <PhaseDifference :phase="csiData.phase || []" />
+        <!-- 相位差图 -->
+        <PhaseDifference :phase="csiData.phase || []" v-if="visibleComponents.includes('phaseDiff')" />
 
-      <!-- 相位极坐标图 -->
-      <Polar :amplitude="csiData.amplitude || []" :phase="csiData.phase || []" />
+        <!-- 相位极坐标图 -->
+        <Polar
+          :amplitude="csiData.amplitude || []"
+          :phase="csiData.phase || []"
+          v-if="visibleComponents.includes('polar')"
+        />
 
-      <!-- 幅度瀑布图 -->
-      <AmplitudeWaterfall :amplitude="csiData.amplitude || []" />
+        <!-- 幅度瀑布图 -->
+        <AmplitudeWaterfall :amplitude="csiData.amplitude || []" v-if="visibleComponents.includes('waterfall')" />
+      </div>
     </main>
   </div>
 </template>
@@ -75,12 +90,20 @@ import AmplitudeWaterfall from "./components/AmplitudeWaterfall.vue";
 const csiData = ref({});
 
 const state = reactive({
-  name: "COM4", // 对应 app.go 中的 serialConfig.Name
+  name: "COM35", // 对应 app.go 中的 serialConfig.Name
   baud: 115200, // 对应 app.go 中的 serialConfig.Baud
   isConnected: false,
 });
 const goLog = ref("");
 let unsubscribe = null;
+const componentOptions = [
+  { id: "amplitude", label: "幅度", value: "amplitude" },
+  { id: "phase", label: "相位", value: "phase" },
+  { id: "phaseDiff", label: "相位差", value: "phaseDiff" },
+  { id: "polar", label: "极坐标", value: "polar" },
+  { id: "waterfall", label: "幅度瀑布", value: "waterfall" },
+];
+const visibleComponents = ref(componentOptions.map((item) => item.value)); // 默认全部显示
 
 const handleUpdate = async () => {
   // 调用 app.go 中的 UpdateSerialConfig
