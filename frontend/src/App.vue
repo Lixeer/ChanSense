@@ -120,7 +120,7 @@
       </div>
       <div v-else-if="currentMode === 'edit'">
         <h2>编辑标记</h2>
-        <AmplitudeWaterfall :amplitude="csiData.amplitude || []" />
+        <AmplitudeWaterfall :history="MAX_HISTORY || 50" :amplitude="csiData.amplitude || []" />
       </div>
       <div v-else>
         <h2>请选择一个模式</h2>
