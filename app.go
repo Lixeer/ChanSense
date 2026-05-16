@@ -3,8 +3,11 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,6 +24,12 @@ type App struct {
 	cancelFunc   context.CancelFunc
 	serialConfig serial.Config
 	mu           sync.Mutex
+
+	// 数据缓存
+	csiCache     []*CSIFrame // 缓存切片
+	head         int
+	size         int
+	maxCacheSize int // 最大缓存数量：2000
 }
 type CSIFrame struct {
 	Index     int       `json:"index"`
@@ -40,7 +49,11 @@ var config = &serial.Config{
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	return &App{
+		maxCacheSize: 2000, // 初始化最大缓存限制
+		head:         0,
+		csiCache:     make([]*CSIFrame, 2000),
+	}
 }
 
 // startup is called when the app starts. The context is saved
@@ -55,17 +68,17 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) Reconnect() {
 	runtime.EventsEmit(a.ctx, "connection-status", "等待串口停止")
 	a.mu.Lock()
-	// 1. 如果已有协程在运行，先停止它
+	// 等待串口释放
 	if a.cancelFunc != nil {
 		a.cancelFunc()
-		time.Sleep(1 * time.Second) // 给一点时间让旧串口完成释放
+		time.Sleep(1 * time.Second)
 	}
 
-	// 2. 创建新的 Context
+	// 创建新的 Context
 	subCtx, cancel := context.WithCancel(context.Background())
 	a.cancelFunc = cancel
 	a.mu.Unlock()
-	// 3. 启动新协程
+	// 启动新协程
 	go a.readSerial(subCtx)
 }
 
@@ -106,6 +119,13 @@ func (a *App) readSerial(ctx context.Context) {
 				runtime.LogWarningf(a.ctx, "解析失败: %v | 原始: %s", err, line[:min(len(line), 50)])
 				continue
 			}
+			a.mu.Lock()
+			a.head = (a.head + 1) % a.maxCacheSize
+			a.csiCache[a.head] = frame
+			if a.size < a.maxCacheSize {
+				a.size++
+			}
+			a.mu.Unlock()
 			// runtime.LogInfof(a.ctx, "解析成功: Index=%d, 子载波=%d个", frame.Index, len(frame.Amplitude))
 			runtime.EventsEmit(a.ctx, "csi-data", frame)
 		}
@@ -162,4 +182,96 @@ func (a *App) UpdateSerialConfig(name string, baud int) {
 
 	// 更新完配置后，通常需要自动重连才能生效
 	a.Reconnect()
+}
+
+// 手动保存
+// func (a *App) SaveTextToFile(content string, defaultFilename string) error {
+// 	// 弹出保存文件对话框
+// 	savePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+// 		Title: "保存文本文件",
+// 		Filters: []runtime.FileFilter{
+// 			{
+// 				DisplayName: "Text Files",
+// 				Pattern:     "*.txt",
+// 			},
+// 		},
+// 		DefaultFilename: defaultFilename, // 使用变量设置默认文件名
+// 	})
+// 	if err != nil || savePath == "" {
+// 		return err
+// 	}
+
+// 	// 写入文件
+// 	return os.WriteFile(savePath, []byte(content), 0644)
+// }
+
+func (a *App) AutoSaveTextToFile(history int, filename string) error {
+	// 获取当前运行的 exe 文件的绝对路径
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("获取程序路径失败: %w", err)
+	}
+	// 获取 exe 所在的目录
+	exeDir := filepath.Dir(exePath)
+
+	saveAllDir := filepath.Join(exeDir, "CSIFrame")
+	if err := os.MkdirAll(saveAllDir, os.ModePerm); err != nil {
+		return fmt.Errorf("创建存档文件夹失败: %w", err)
+	}
+	finalAllPath := filepath.Join(saveAllDir, filename)
+
+	saveDataDir := filepath.Join(exeDir, "Data")
+	if err := os.MkdirAll(saveDataDir, os.ModePerm); err != nil {
+		return fmt.Errorf("创建数据文件夹失败: %w", err)
+	}
+	finalDataPath := filepath.Join(saveDataDir, filename)
+
+	frames := a.GetCachedCSI(history)
+	justRaws := make([][]int16, len(frames))
+	for i, frame := range frames {
+		if frame != nil {
+			justRaws[i] = frame.Raw
+		}
+	}
+
+	jsonAllData, err := json.Marshal(frames)
+	if err != nil {
+		return fmt.Errorf("序列化全量数据失败: %w", err)
+	}
+	err = os.WriteFile(finalAllPath, jsonAllData, 0644)
+	if err != nil {
+		return fmt.Errorf("写入全量文件失败: %w", err)
+	}
+
+	jsonRawData, err := json.Marshal(justRaws)
+	if err != nil {
+		return fmt.Errorf("序列化Raw数据失败: %w", err)
+	}
+	err = os.WriteFile(finalDataPath, jsonRawData, 0644)
+	if err != nil {
+		return fmt.Errorf("写入Raw数据文件失败: %w", err)
+	}
+	return nil
+}
+
+func (a *App) GetCachedCSI(count int) []*CSIFrame {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if count > a.size {
+		count = a.size
+	}
+	if count <= 0 {
+		a.mu.Unlock()
+		return []*CSIFrame{}
+	}
+	result := make([]*CSIFrame, 0, count)
+	start := (a.head - count + 1 + a.maxCacheSize) % a.maxCacheSize
+	for i := 0; i < count; i++ {
+		idx := (start + i) % a.maxCacheSize
+		frame := a.csiCache[idx]
+		if frame != nil {
+			result = append(result, frame)
+		}
+	}
+	return result
 }

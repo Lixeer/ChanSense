@@ -1,6 +1,20 @@
 <template>
   <div class="amplitude-waterfall flex items-center justify-center flex-col gap-1">
     <h3>CSI 幅度数据瀑布图</h3>
+    <div>
+      <span>画布宽度:</span>
+      <input class="border w-16" v-model.number="WIDTH" type="number" placeholder="画布宽度" />
+    </div>
+    <div>
+      <span class="text-sm text-gray-500"
+        >尽量保持 宽度/历史点数=<span
+          :class="Number.isInteger(WIDTH / props.history) ? 'text-green-500' : 'text-red-500'"
+        >
+          {{ (WIDTH / props.history).toFixed(2) }}
+        </span>
+        大于零整数吧，不然残影
+      </span>
+    </div>
     <canvas ref="canvasRef" :width="WIDTH" height="200"></canvas>
   </div>
 </template>
@@ -12,13 +26,15 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  history: {
+    type: Number,
+    default: 200,
+  },
 });
 const canvasRef = ref(null);
-
 const prevFrame = ref(null);
-const MAX_HISTORY = 200;
-const WIDTH = 800;
-const MAX_AMPLITUDE = 75;
+const WIDTH = ref(800);
+const MAX_AMPLITUDE = ref(75);
 onMounted(() => {
   const canvas = canvasRef.value;
   if (!canvas) return;
@@ -36,10 +52,10 @@ const draw = () => {
     return;
   }
   const ctx = canvas.getContext("2d");
-  const w = WIDTH;
+  const w = WIDTH.value;
   const h = canvas.height;
 
-  const step = WIDTH / MAX_HISTORY;
+  const step = WIDTH.value / props.history;
 
   ctx.drawImage(canvas, 0, 0, w, h, -step, 0, w, h);
   ctx.clearRect(w - step, 0, step, h);
@@ -52,11 +68,11 @@ const draw = () => {
     const prevVal = prevFrame.value[i] ?? 0;
     const r = Math.floor((i / props.amplitude.length) * 255 * 0.8);
     const g = Math.floor((1 - i / props.amplitude.length) * 255);
-    const color = `rgba(${r}, ${g}, 50, ${(val / MAX_AMPLITUDE) * 0.2})`;
+    const color = `rgba(${r}, ${g}, 50, ${(val / MAX_AMPLITUDE.value) * 0.2})`;
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
-    ctx.moveTo(w - step, h - (prevVal / MAX_AMPLITUDE) * h);
-    ctx.lineTo(w, h - (val / MAX_AMPLITUDE) * h);
+    ctx.moveTo(w - step, h - (prevVal / MAX_AMPLITUDE.value) * h);
+    ctx.lineTo(w, h - (val / MAX_AMPLITUDE.value) * h);
     ctx.stroke();
   }
 

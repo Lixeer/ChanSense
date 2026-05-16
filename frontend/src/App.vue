@@ -2,11 +2,13 @@
   <div class="flex flex-row text-black h-screen overflow-hidden">
     <aside class="p-4 flex border-r-2">
       <div class="flex flex-col gap-4 w-64 h-full">
+        <!-- 串口 -->
         <div class="flex gap-2">
           <label class="">Serial Port</label>
-          <input class="border w-32" v-model="state.name" placeholder="e.g. COM4" />
+          <input class="border w-32" v-model.number="state.name" placeholder="e.g. COM4" />
         </div>
 
+        <!-- 码率 -->
         <div class="flex gap-2">
           <label class="">Baud Rate</label>
           <select class="border w-32" name="" id="" v-model="state.baud">
@@ -18,6 +20,13 @@
           </select>
         </div>
 
+        <!-- 历史数据点数 -->
+        <div class="flex gap-2">
+          <span>历史数据点数:</span>
+          <input class="border w-16" v-model.number="MAX_HISTORY" type="number" placeholder="历史数据点数" />
+        </div>
+
+        <!-- 配置 -->
         <div class="flex justify-between gap-2">
           <button class="border w-full rounded hover:bg-gray-200 active:bg-gray-300" @click="handleUpdate">
             应用配置
@@ -27,6 +36,7 @@
           </button>
         </div>
 
+        <!-- 状态响应 -->
         <div class="flex flex-col justify-center">
           <span class="">连接状态</span>
           <div class="flex items-center gap-1">
@@ -37,16 +47,47 @@
           </div>
         </div>
 
-        <div class="flex flex-row flex-wrap gap-4">
+        <!-- 组件可见性控制 -->
+        <div class="flex justify-between gap-2">
+          <button
+            class="border w-full rounded hover:bg-gray-200 active:bg-gray-300"
+            :class="{ active: currentMode === 'edit' }"
+            @click="currentMode = 'edit'"
+          >
+            编辑标记
+          </button>
+          <button
+            class="border w-full rounded hover:bg-gray-200 active:bg-gray-300"
+            :class="{ active: currentMode === 'view' }"
+            @click="currentMode = 'view'"
+          >
+            数据源监控
+          </button>
+        </div>
+
+        <!-- 组件可见性控制 -->
+        <div class="flex flex-row flex-wrap gap-4" v-if="currentMode === 'view'">
           <label v-for="item in componentOptions" :key="item.id" class="checkbox-label">
             <input type="checkbox" :value="item.value" v-model="visibleComponents" />
             <span>{{ item.label }}</span>
           </label>
         </div>
+
+        <!-- 保存 -->
+        <div>
+          <button class="border w-full rounded hover:bg-gray-200 active:bg-gray-300" @click="saveToFile">
+            保存文件
+          </button>
+        </div>
+
+        <!-- 注释 -->
+        <div class="mt-auto">
+          <span :class="isListening ? 'text-green-500' : 'text-red-400'">空格暂停输入</span>
+        </div>
       </div>
     </aside>
     <main class="flex-1 overflow-y-auto gap-4 p-4 pb-32">
-      <div class="flex flex-col gap-8">
+      <div class="flex flex-col gap-8" v-if="currentMode === 'view'">
         <div>
           <h2>CSI 数据监控</h2>
           <!-- <div>RSSI: {{ csiData.rssi }}</div> -->
@@ -71,7 +112,18 @@
         />
 
         <!-- 幅度瀑布图 -->
-        <AmplitudeWaterfall :amplitude="csiData.amplitude || []" v-if="visibleComponents.includes('waterfall')" />
+        <AmplitudeWaterfall
+          :history="MAX_HISTORY || 50"
+          :amplitude="csiData.amplitude || []"
+          v-if="visibleComponents.includes('waterfall')"
+        />
+      </div>
+      <div v-else-if="currentMode === 'edit'">
+        <h2>编辑标记</h2>
+        <AmplitudeWaterfall :amplitude="csiData.amplitude || []" />
+      </div>
+      <div v-else>
+        <h2>请选择一个模式</h2>
       </div>
     </main>
   </div>
@@ -80,14 +132,16 @@
 <script setup lang="js">
 import { ref, onMounted, onUnmounted, reactive } from "vue";
 import { EventsOn, EventsOff } from "../wailsjs/runtime";
-import { UpdateSerialConfig, Reconnect } from "../wailsjs/go/main/App";
+import { UpdateSerialConfig, Reconnect, AutoSaveTextToFile } from "../wailsjs/go/main/App";
 import Amplitude from "./components/Amplitude.vue";
 import Phase from "./components/Phase.vue";
 import PhaseDifference from "./components/PhaseDifference.vue";
 import Polar from "./components/Polar.vue";
 import AmplitudeWaterfall from "./components/AmplitudeWaterfall.vue";
+import { useMagicKeys, whenever, onKeyStroke, useDateFormat } from "@vueuse/core";
 
 const csiData = ref({});
+const MAX_HISTORY = ref(200);
 
 const state = reactive({
   name: "COM35", // 对应 app.go 中的 serialConfig.Name
@@ -104,6 +158,7 @@ const componentOptions = [
   { id: "waterfall", label: "幅度瀑布", value: "waterfall" },
 ];
 const visibleComponents = ref(componentOptions.map((item) => item.value)); // 默认全部显示
+const currentMode = ref("view"); // 默认展示模式
 
 const handleUpdate = async () => {
   // 调用 app.go 中的 UpdateSerialConfig
@@ -128,11 +183,19 @@ onMounted(() => {
   });
 });
 
+onKeyStroke(" ", () => {
+  isListening.value = !isListening.value;
+});
+const isListening = ref(true);
 onMounted(() => {
   // 监听 Go 发送的 "csi-data" 事件
   unsubscribe = EventsOn("csi-data", (frame) => {
     // console.log("收到 CSI:", frame);
-    csiData.value = frame;
+    if (isListening.value) {
+      csiData.value = frame;
+    } else {
+      csiData.value = {};
+    }
     state.isConnected = true;
   });
 });
@@ -141,4 +204,23 @@ onUnmounted(() => {
   // 取消监听，防止内存泄漏
   if (unsubscribe) unsubscribe();
 });
+
+async function saveToFile() {
+  const formattedTime = useDateFormat(new Date(), "YYYYMMDD_HHmmss");
+  const count = MAX_HISTORY.value;
+  const filename = `${formattedTime.value}.json`;
+
+  try {
+    await AutoSaveTextToFile(count, filename); // 调用 Go 方法并传递变量
+    console.log("保存成功，文件名：", filename);
+  } catch (e) {
+    alert("保存失败：" + e);
+  }
+}
 </script>
+
+<style scoped>
+.active {
+  background: rgb(229 231 235);
+}
+</style>
