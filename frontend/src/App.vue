@@ -111,14 +111,18 @@
 
         <!-- 保存 -->
         <div>
-          <button class="border w-full rounded hover:bg-gray-200 active:bg-gray-300" @click="saveToFile">
+          <button
+            class="border w-full rounded hover:bg-gray-200 active:bg-gray-300"
+            @click="saveToFile(csiData.index, MAX_HISTORY)"
+          >
             即时保存{{ MAX_HISTORY }}条数据
           </button>
         </div>
 
         <!-- 注释 -->
-        <div class="mt-auto">
-          <span :class="isListening ? 'text-green-500' : 'text-red-400'">空格暂停输入</span>
+        <div class="mt-auto flex flex-col gap-4">
+          <span class="text-sm text-gray-500 border rounded">{{ saveLog }}</span>
+          <span :class="isListening ? 'text-green-500' : 'text-red-400'">空格暂停输入，v暂停输入自动保存</span>
         </div>
       </div>
     </aside>
@@ -156,6 +160,7 @@
       </div>
       <div v-else-if="currentMode === 'edit'">
         <h2>编辑标记</h2>
+        <div>Index: {{ csiData.index }}</div>
         <AmplitudeWaterfall :history="MAX_HISTORY || 50" :amplitude="csiData.amplitude || []" />
       </div>
       <div v-else>
@@ -166,7 +171,7 @@
 </template>
 
 <script setup lang="js">
-import { ref, onMounted, onUnmounted, reactive } from "vue";
+import { ref, onMounted, onUnmounted, reactive, watch } from "vue";
 import { EventsOn, EventsOff } from "../wailsjs/runtime";
 import { UpdateSerialConfig, Reconnect, AutoSaveTextToFile } from "../wailsjs/go/main/App";
 import Amplitude from "./components/Amplitude.vue";
@@ -220,9 +225,26 @@ onMounted(() => {
   });
 });
 
-// 空格监听
+// 空格监听,v键录制
+const recordIndex = ref(null);
+const isRecording = ref(false);
 onKeyStroke(" ", () => {
   isListening.value = !isListening.value;
+  isRecording.value = false;
+});
+onKeyStroke("v", async () => {
+  isListening.value = !isListening.value;
+  isRecording.value = true;
+  if (isListening.value) {
+    recordIndex.value = await waitForNextIndex();
+    // alert("已恢复数据监听");
+  } else {
+    if (recordIndex.value !== null && isRecording.value) {
+      saveToFile(csiData.value.index, csiData.value.index - recordIndex.value);
+    }
+    recordIndex.value = null;
+    // alert("已暂停数据监听");
+  }
 });
 const isListening = ref(true);
 onMounted(() => {
@@ -237,23 +259,39 @@ onMounted(() => {
     state.isConnected = true;
   });
 });
+const waitForNextIndex = () => {
+  return new Promise((resolve) => {
+    // 启动一个 watch 监听 index
+    const unwatch = watch(
+      () => csiData.value.index,
+      (newIndex, oldIndex) => {
+        // 刷新下一个数据
+        if (newIndex !== oldIndex) {
+          unwatch(); // 变动后立即销毁监听器
+          resolve(newIndex); // 异步返回最新的 index
+        }
+      },
+    );
+  });
+};
 
 onUnmounted(() => {
   // 取消监听，防止内存泄漏
   if (unsubscribe) unsubscribe();
 });
 
-async function saveToFile() {
+const saveLog = ref("");
+async function saveToFile(index, count) {
   const formattedTime = useDateFormat(new Date(), "YYYYMMDD_HHmmss");
-  const count = MAX_HISTORY.value;
 
   const filename = labelStore.activeLabel
     ? `${labelStore.activeLabel}_${formattedTime.value}.json`
     : `${formattedTime.value}.json`;
 
   try {
-    await AutoSaveTextToFile(csiData.value.index, count, filename); // 调用 Go 方法并传递变量
+    await AutoSaveTextToFile(index, count, filename); // 调用 Go 方法并传递变量
     console.log("保存成功，文件名：", filename);
+    saveLog.value = `已保存[${index - count}-${index}] ${count} 条数据到 ${filename}`;
   } catch (e) {
     alert("保存失败：" + e);
   }
