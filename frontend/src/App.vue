@@ -73,10 +73,46 @@
           </label>
         </div>
 
+        <!-- 数据标签 -->
+        <div class="" v-if="currentMode === 'edit'">
+          <div class="flex gap-2">
+            <input
+              type="text"
+              class="border w-32"
+              v-model="newLabel"
+              placeholder="输入标签名称"
+              @keyup.enter="handleSetLabel"
+            />
+            <button class="border w-16 rounded hover:bg-gray-200 active:bg-gray-300 text-sm" @click="handleSetLabel">
+              添加标签
+            </button>
+            <button
+              class="border w-8 rounded hover:bg-gray-200 active:bg-gray-300 text-sm"
+              @click="labelStore.clearLabels"
+            >
+              清空
+            </button>
+          </div>
+          <div>
+            <span class="text-sm text-gray-500">暂无标签</span>
+            <div class="flex flex-wrap gap-1 mt-1">
+              <button
+                v-for="label in labelStore.labels"
+                :key="label"
+                class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm"
+                :class="{ 'ring-2 ring-blue-500': label === labelStore.activeLabel }"
+                @click="labelStore.setActiveLabel(label)"
+              >
+                {{ label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- 保存 -->
         <div>
           <button class="border w-full rounded hover:bg-gray-200 active:bg-gray-300" @click="saveToFile">
-            保存文件
+            即时保存{{ MAX_HISTORY }}条数据
           </button>
         </div>
 
@@ -139,6 +175,7 @@ import PhaseDifference from "./components/PhaseDifference.vue";
 import Polar from "./components/Polar.vue";
 import AmplitudeWaterfall from "./components/AmplitudeWaterfall.vue";
 import { useMagicKeys, whenever, onKeyStroke, useDateFormat } from "@vueuse/core";
+import { useLabelStore } from "./stores/Label";
 
 const csiData = ref({});
 const MAX_HISTORY = ref(200);
@@ -183,6 +220,7 @@ onMounted(() => {
   });
 });
 
+// 空格监听
 onKeyStroke(" ", () => {
   isListening.value = !isListening.value;
 });
@@ -194,7 +232,7 @@ onMounted(() => {
     if (isListening.value) {
       csiData.value = frame;
     } else {
-      csiData.value = {};
+      // csiData.value = {};
     }
     state.isConnected = true;
   });
@@ -208,14 +246,36 @@ onUnmounted(() => {
 async function saveToFile() {
   const formattedTime = useDateFormat(new Date(), "YYYYMMDD_HHmmss");
   const count = MAX_HISTORY.value;
-  const filename = `${formattedTime.value}.json`;
+
+  const filename = labelStore.activeLabel
+    ? `${labelStore.activeLabel}_${formattedTime.value}.json`
+    : `${formattedTime.value}.json`;
 
   try {
-    await AutoSaveTextToFile(count, filename); // 调用 Go 方法并传递变量
+    await AutoSaveTextToFile(csiData.value.index, count, filename); // 调用 Go 方法并传递变量
     console.log("保存成功，文件名：", filename);
   } catch (e) {
     alert("保存失败：" + e);
   }
+}
+
+const labelStore = useLabelStore();
+// 新标签输入
+const newLabel = ref("");
+function handleSetLabel() {
+  const trimmedValue = newLabel.value.trim();
+  if (!trimmedValue) {
+    alert("标签内容不能为空！");
+    return;
+  }
+  if (labelStore.labels.includes(trimmedValue)) {
+    alert("该标签已存在！");
+    return;
+  }
+  labelStore.addLabel(trimmedValue);
+
+  labelStore.setActiveLabel(trimmedValue);
+  newLabel.value = "";
 }
 </script>
 

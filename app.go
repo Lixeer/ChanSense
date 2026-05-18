@@ -27,9 +27,10 @@ type App struct {
 
 	// 数据缓存
 	csiCache     []*CSIFrame // 缓存切片
-	head         int
-	size         int
-	maxCacheSize int // 最大缓存数量：2000
+	head         int         // 头指针
+	size         int         // 当前缓存数量
+	maxCacheSize int         // 最大缓存数量：2000
+	index        int
 }
 type CSIFrame struct {
 	Index     int       `json:"index"`
@@ -52,6 +53,7 @@ func NewApp() *App {
 	return &App{
 		maxCacheSize: 2000, // 初始化最大缓存限制
 		head:         0,
+		index:        0,
 		csiCache:     make([]*CSIFrame, 2000),
 	}
 }
@@ -115,6 +117,8 @@ func (a *App) readSerial(ctx context.Context) {
 				continue
 			}
 			frame, err := parseCSI(line)
+			a.index++
+			frame.Index = a.index
 			if err != nil {
 				runtime.LogWarningf(a.ctx, "解析失败: %v | 原始: %s", err, line[:min(len(line), 50)])
 				continue
@@ -205,7 +209,7 @@ func (a *App) UpdateSerialConfig(name string, baud int) {
 // 	return os.WriteFile(savePath, []byte(content), 0644)
 // }
 
-func (a *App) AutoSaveTextToFile(history int, filename string) error {
+func (a *App) AutoSaveTextToFile(saveIndex int, history int, filename string) error {
 	// 获取当前运行的 exe 文件的绝对路径
 	exePath, err := os.Executable()
 	if err != nil {
@@ -226,7 +230,7 @@ func (a *App) AutoSaveTextToFile(history int, filename string) error {
 	}
 	finalDataPath := filepath.Join(saveDataDir, filename)
 
-	frames := a.GetCachedCSI(history)
+	frames := a.GetCachedCSI(saveIndex, history)
 	justRaws := make([][]int16, len(frames))
 	for i, frame := range frames {
 		if frame != nil {
@@ -254,18 +258,19 @@ func (a *App) AutoSaveTextToFile(history int, filename string) error {
 	return nil
 }
 
-func (a *App) GetCachedCSI(count int) []*CSIFrame {
+func (a *App) GetCachedCSI(saveIndex int, count int) []*CSIFrame {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if count > a.size {
-		count = a.size
+	diff := max(a.index-saveIndex, 0)
+	if count+diff > a.size {
+		count = a.size - diff
 	}
 	if count <= 0 {
-		a.mu.Unlock()
 		return []*CSIFrame{}
 	}
 	result := make([]*CSIFrame, 0, count)
-	start := (a.head - count + 1 + a.maxCacheSize) % a.maxCacheSize
+	// 头指针减去差值和数量，得到起始位置
+	start := (a.head - diff - count + 1 + a.maxCacheSize) % a.maxCacheSize
 	for i := 0; i < count; i++ {
 		idx := (start + i) % a.maxCacheSize
 		frame := a.csiCache[idx]
