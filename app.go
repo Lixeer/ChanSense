@@ -280,3 +280,29 @@ func (a *App) GetCachedCSI(saveIndex int, count int) []*CSIFrame {
 	}
 	return result
 }
+
+func (a *App) ClearSavedData() {
+	exePath, err := os.Executable()
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "获取程序路径失败: %v", err)
+		return
+	}
+	exeDir := filepath.Dir(exePath)
+
+	saveAllDir := filepath.Join(exeDir, "CSIFrame")
+	saveDataDir := filepath.Join(exeDir, "Data")
+
+	err = os.RemoveAll(saveAllDir)
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "清空存档文件夹失败: %v", err)
+	} else {
+		runtime.LogInfo(a.ctx, "存档文件夹已清空")
+	}
+
+	err = os.RemoveAll(saveDataDir)
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "清空数据文件夹失败: %v", err)
+	} else {
+		runtime.LogInfo(a.ctx, "数据文件夹已清空")
+	}
+}

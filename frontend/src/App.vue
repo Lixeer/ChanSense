@@ -119,6 +119,16 @@
           </button>
         </div>
 
+        <!-- 清空存档 -->
+        <div>
+          <button
+            class="border w-full rounded text-red-700 bg-red-200 hover:bg-red-300 active:bg-red-400"
+            @click="clearSavedData"
+          >
+            清空已保存数据
+          </button>
+        </div>
+
         <!-- 注释 -->
         <div class="mt-auto flex flex-col gap-4">
           <span class="text-sm text-gray-500 border rounded" v-if="saveLog">{{ saveLog }}</span>
@@ -173,7 +183,7 @@
 <script setup lang="js">
 import { ref, onMounted, onUnmounted, reactive, watch } from "vue";
 import { EventsOn, EventsOff } from "../wailsjs/runtime";
-import { UpdateSerialConfig, Reconnect, AutoSaveTextToFile } from "../wailsjs/go/main/App";
+import { UpdateSerialConfig, Reconnect, AutoSaveTextToFile, ClearSavedData } from "../wailsjs/go/main/App";
 import Amplitude from "./components/Amplitude.vue";
 import Phase from "./components/Phase.vue";
 import PhaseDifference from "./components/PhaseDifference.vue";
@@ -322,6 +332,21 @@ function handleSetLabel() {
 
   labelStore.setActiveLabel(trimmedValue);
   newLabel.value = "";
+}
+
+async function clearSavedData() {
+  const isConfirmed = confirm("确定要清空所有录制的数据吗？此操作无法撤销。");
+  if (isConfirmed) {
+    try {
+      await ClearSavedData();
+      saveLog.value = "数据已全部清空";
+    } catch (error) {
+      console.error("清空数据失败:", error);
+      alert("清空失败");
+    }
+  } else {
+    console.log("用户取消了清空操作");
+  }
 }
 </script>
 

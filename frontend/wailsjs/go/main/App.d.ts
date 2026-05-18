@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function AutoSaveTextToFile(arg1:number,arg2:number,arg3:string):Promise<void>;
 
+export function ClearSavedData():Promise<void>;
+
 export function GetCachedCSI(arg1:number,arg2:number):Promise<Array<main.CSIFrame>>;
 
 export function Reconnect():Promise<void>;
