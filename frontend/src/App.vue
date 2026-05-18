@@ -121,7 +121,7 @@
 
         <!-- 注释 -->
         <div class="mt-auto flex flex-col gap-4">
-          <span class="text-sm text-gray-500 border rounded">{{ saveLog }}</span>
+          <span class="text-sm text-gray-500 border rounded" v-if="saveLog">{{ saveLog }}</span>
           <span :class="isListening ? 'text-green-500' : 'text-red-400'">空格暂停输入，v暂停输入自动保存</span>
         </div>
       </div>
@@ -227,26 +227,34 @@ onMounted(() => {
 
 // 空格监听,v键录制
 const recordIndex = ref(null);
+const isListening = ref(true);
 const isRecording = ref(false);
 onKeyStroke(" ", () => {
+  if (isRecording.value) {
+    saveLog.value = "录制已取消";
+  }
   isListening.value = !isListening.value;
   isRecording.value = false;
 });
 onKeyStroke("v", async () => {
+  // 按下瞬间不在监听状态（暂停，即将开始监听）且不在录制状态（即将开始）
+  if (!isListening.value && !isRecording.value) {
+    saveLog.value = "正在录制数据...";
+  }
+  // 切换监听状态
   isListening.value = !isListening.value;
-  isRecording.value = true;
+  // 开始监听时开始录制，停止监听时保存数据
   if (isListening.value) {
+    isRecording.value = true;
     recordIndex.value = await waitForNextIndex();
-    // alert("已恢复数据监听");
   } else {
     if (recordIndex.value !== null && isRecording.value) {
       saveToFile(csiData.value.index, csiData.value.index - recordIndex.value);
     }
     recordIndex.value = null;
-    // alert("已暂停数据监听");
+    isRecording.value = false;
   }
 });
-const isListening = ref(true);
 onMounted(() => {
   // 监听 Go 发送的 "csi-data" 事件
   unsubscribe = EventsOn("csi-data", (frame) => {
