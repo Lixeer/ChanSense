@@ -14,6 +14,10 @@ export function GetCachedCSI(arg1, arg2) {
   return window['go']['main']['App']['GetCachedCSI'](arg1, arg2);
 }
 
+export function ReadSavedDataFileName() {
+  return window['go']['main']['App']['ReadSavedDataFileName']();
+}
+
 export function Reconnect() {
   return window['go']['main']['App']['Reconnect']();
 }

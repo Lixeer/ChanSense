@@ -306,3 +306,27 @@ func (a *App) ClearSavedData() {
 		runtime.LogInfo(a.ctx, "数据文件夹已清空")
 	}
 }
+
+func (a *App) ReadSavedDataFileName() ([]string, error) {
+	// 获取当前运行的 exe 文件的绝对路径
+	exePath, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("获取程序路径失败: %w", err)
+	}
+	// 获取 exe 所在的目录
+	exeDir := filepath.Dir(exePath)
+
+	saveAllDir := filepath.Join(exeDir, "CSIFrame")
+	entries, err := os.ReadDir(saveAllDir)
+	if err != nil {
+		return nil, fmt.Errorf("无法读取文件夹: %w", err)
+	}
+	var fileNames []string
+	for _, entry := range entries {
+		// 确保是文件而不是子文件夹，且后缀是 .json
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".json" {
+			fileNames = append(fileNames, entry.Name())
+		}
+	}
+	return fileNames, nil
+}

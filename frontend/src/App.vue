@@ -94,7 +94,7 @@
             </button>
           </div>
           <div>
-            <span class="text-sm text-gray-500">暂无标签</span>
+            <span class="text-sm text-gray-500" v-if="labelStore.labels.length === 0">暂无标签</span>
             <div class="flex flex-wrap gap-1 mt-1">
               <button
                 v-for="label in labelStore.labels"
@@ -129,6 +129,11 @@
           </button>
         </div>
 
+        <!-- 本地文件列表 -->
+        <div class="border h-full overflow-auto flex flex-col whitespace-nowrap" v-if="currentMode === 'edit'">
+          <button class="hover:bg-gray-200 active:bg-gray-300" v-for="name in jsonFiles" :key="name">{{ name }}</button>
+        </div>
+
         <!-- 注释 -->
         <div class="mt-auto flex flex-col gap-4">
           <span class="text-sm text-gray-500 border rounded" v-if="saveLog">{{ saveLog }}</span>
@@ -145,6 +150,13 @@
           <div>子载波数量: {{ csiData.amplitude?.length }}</div>
         </div>
 
+        <!-- 幅度瀑布图 -->
+        <AmplitudeWaterfall
+          :history="MAX_HISTORY || 50"
+          :amplitude="csiData.amplitude || []"
+          v-if="visibleComponents.includes('waterfall')"
+        />
+
         <!-- 幅度图表 -->
         <Amplitude :amplitude="csiData.amplitude || []" v-if="visibleComponents.includes('amplitude')" />
 
@@ -159,13 +171,6 @@
           :amplitude="csiData.amplitude || []"
           :phase="csiData.phase || []"
           v-if="visibleComponents.includes('polar')"
-        />
-
-        <!-- 幅度瀑布图 -->
-        <AmplitudeWaterfall
-          :history="MAX_HISTORY || 50"
-          :amplitude="csiData.amplitude || []"
-          v-if="visibleComponents.includes('waterfall')"
         />
       </div>
       <div v-else-if="currentMode === 'edit'">
@@ -183,7 +188,13 @@
 <script setup lang="js">
 import { ref, onMounted, onUnmounted, reactive, watch } from "vue";
 import { EventsOn, EventsOff } from "../wailsjs/runtime";
-import { UpdateSerialConfig, Reconnect, AutoSaveTextToFile, ClearSavedData } from "../wailsjs/go/main/App";
+import {
+  UpdateSerialConfig,
+  Reconnect,
+  AutoSaveTextToFile,
+  ClearSavedData,
+  ReadSavedDataFileName,
+} from "../wailsjs/go/main/App";
 import Amplitude from "./components/Amplitude.vue";
 import Phase from "./components/Phase.vue";
 import PhaseDifference from "./components/PhaseDifference.vue";
@@ -303,20 +314,21 @@ async function saveToFile(index, count) {
   const formattedTime = useDateFormat(new Date(), "YYYYMMDD_HHmmss");
 
   const filename = labelStore.activeLabel
-    ? `${labelStore.activeLabel}_${formattedTime.value}.json`
-    : `${formattedTime.value}.json`;
+    ? `[${count}]${labelStore.activeLabel}_${formattedTime.value}.json`
+    : `[${count}]${formattedTime.value}.json`;
 
   try {
     await AutoSaveTextToFile(index, count, filename); // 调用 Go 方法并传递变量
     console.log("保存成功，文件名：", filename);
     saveLog.value = `已保存[${index - count}-${index}] ${count} 条数据到 ${filename}`;
+    refreshReadFilesList.value++;
   } catch (e) {
     alert("保存失败：" + e);
   }
 }
 
-const labelStore = useLabelStore();
 // 新标签输入
+const labelStore = useLabelStore();
 const newLabel = ref("");
 function handleSetLabel() {
   const trimmedValue = newLabel.value.trim();
@@ -334,12 +346,14 @@ function handleSetLabel() {
   newLabel.value = "";
 }
 
+// 删除函数
 async function clearSavedData() {
   const isConfirmed = confirm("确定要清空所有录制的数据吗？此操作无法撤销。");
   if (isConfirmed) {
     try {
       await ClearSavedData();
       saveLog.value = "数据已全部清空";
+      refreshReadFilesList.value++;
     } catch (error) {
       console.error("清空数据失败:", error);
       alert("清空失败");
@@ -348,6 +362,24 @@ async function clearSavedData() {
     console.log("用户取消了清空操作");
   }
 }
+
+// 文件夹显示
+const jsonFiles = ref([]);
+const refreshReadFilesList = ref(0);
+const readFilesList = async () => {
+  try {
+    jsonFiles.value = await ReadSavedDataFileName();
+    console.log("已保存数据文件列表:", jsonFiles.value);
+  } catch (e) {
+    console.error("读取文件列表失败:", e);
+  }
+};
+onMounted(async () => {
+  readFilesList();
+});
+watch(refreshReadFilesList, async () => {
+  readFilesList();
+});
 </script>
 
 <style scoped>
