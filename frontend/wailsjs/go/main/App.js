@@ -10,6 +10,10 @@ export function ClearSavedData() {
   return window['go']['main']['App']['ClearSavedData']();
 }
 
+export function DeleteFile(arg1) {
+  return window['go']['main']['App']['DeleteFile'](arg1);
+}
+
 export function GetCachedCSI(arg1, arg2) {
   return window['go']['main']['App']['GetCachedCSI'](arg1, arg2);
 }

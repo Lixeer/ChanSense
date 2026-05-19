@@ -6,6 +6,8 @@ export function AutoSaveTextToFile(arg1:number,arg2:number,arg3:string):Promise<
 
 export function ClearSavedData():Promise<void>;
 
+export function DeleteFile(arg1:string):Promise<void>;
+
 export function GetCachedCSI(arg1:number,arg2:number):Promise<Array<main.CSIFrame>>;
 
 export function LoadFrameFile(arg1:string):Promise<void>;

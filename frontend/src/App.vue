@@ -133,26 +133,30 @@
 
         <!-- 本地文件列表 -->
         <div class="border h-full overflow-auto flex flex-col whitespace-nowrap" v-if="currentMode === 'edit'">
-          <button
-            class="hover:bg-gray-200 active:bg-gray-300"
-            v-for="name in jsonFiles"
-            :key="name"
-            @click="
-              () => {
-                handleFileClick(name);
-                LoadFrameFile(name);
-                activeCount++;
-              }
-            "
-          >
-            {{ name }}
-          </button>
+          <div class="flex justify-start gap-2 px-2" v-for="name in jsonFiles" :key="name">
+            <div class="text-red-700" v-if="isPrepareDelete && name === deleteFileName">X</div>
+            <button
+              class="hover:bg-gray-200 active:bg-gray-300"
+              @click="
+                () => {
+                  handleFileClick(name);
+                  LoadFrameFile(name);
+                  activeCount++;
+                }
+              "
+              @contextmenu.prevent="deleteFile(name)"
+            >
+              {{ name }}
+            </button>
+          </div>
         </div>
 
         <!-- 注释 -->
         <div class="mt-auto flex flex-col gap-4">
           <span class="text-sm text-gray-500 border rounded" v-if="saveLog">{{ saveLog }}</span>
-          <span :class="isListening ? 'text-green-500' : 'text-red-400'">空格暂停，v录制，x剪切</span>
+          <span class="text-sm" :class="isListening ? 'text-green-500' : 'text-red-400'"
+            >空格暂停，v录制，x剪切，右键删除</span
+          >
         </div>
       </div>
     </aside>
@@ -224,13 +228,14 @@ import {
   ReadSavedDataFileName,
   LoadFrameFile,
   SaveDataSegment,
+  DeleteFile,
 } from "../wailsjs/go/main/App";
 import Amplitude from "./components/Amplitude.vue";
 import Phase from "./components/Phase.vue";
 import PhaseDifference from "./components/PhaseDifference.vue";
 import Polar from "./components/Polar.vue";
 import AmplitudeWaterfall from "./components/AmplitudeWaterfall.vue";
-import { useMagicKeys, whenever, onKeyStroke, useDateFormat } from "@vueuse/core";
+import { useMagicKeys, whenever, onKeyStroke, useDateFormat, useTimeoutFn } from "@vueuse/core";
 import { useLabelStore } from "./stores/Label";
 import HistoricalWaterfall from "./components/HistoricalWaterfall.vue";
 
@@ -462,6 +467,42 @@ onKeyStroke("x", async () => {
 });
 
 const isFixed = ref(false);
+const isPrepareDelete = ref(false);
+const deleteFileName = ref("");
+const { start, stop } = useTimeoutFn(
+  () => {
+    isPrepareDelete.value = false;
+    deleteFileName.value = "";
+  },
+  3000,
+  { immediate: false },
+);
+const deleteFile = async (name) => {
+  if (deleteFileName.value !== name) {
+    deleteFileName.value = name;
+    isPrepareDelete.value = true;
+    console.log("准备删除文件:", name);
+    start();
+    return;
+  }
+  if (!isPrepareDelete.value) {
+    isPrepareDelete.value = true;
+    start();
+    return;
+  }
+  // 这里调用删除文件的函数，传入 activeFileName.value
+  // 例如：await DeleteFile(activeFileName.value);
+  stop();
+  try {
+    console.log("正在删除文件:", name);
+    await DeleteFile(name);
+    saveLog.value = `文件 ${name} 已删除`;
+  } catch (e) {
+    alert(`删除文件 ${name} 失败: ${e}`);
+  }
+  isPrepareDelete.value = false;
+  refreshReadFilesList.value++;
+};
 </script>
 
 <style scoped>

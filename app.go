@@ -383,7 +383,7 @@ func (a *App) doLoadFrameFile(ctx context.Context, filename string) error {
 }
 
 func (a *App) SaveDataSegment(startIdx int, endIdx int, srcFileName string, newfilename string) error {
-	fmt.Printf("准备保存数据段: start=%d, end=%d, srcFile=%s, newFile=%s\n", startIdx, endIdx, srcFileName, newfilename)
+	// fmt.Printf("准备保存数据段: start=%d, end=%d, srcFile=%s, newFile=%s\n", startIdx, endIdx, srcFileName, newfilename)
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("获取程序路径失败: %w", err)
@@ -437,6 +437,30 @@ func (a *App) SaveDataSegment(startIdx int, endIdx int, srcFileName string, newf
 	err = os.WriteFile(newDataPath, newJsonData, 0644)
 	if err != nil {
 		return fmt.Errorf("写入新文件失败: %v", err)
+	}
+	return nil
+}
+
+func (a *App) DeleteFile(filename string) error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("获取程序路径失败: %w", err)
+	}
+	exeDir := filepath.Dir(exePath)
+	saveAllDir := filepath.Join(exeDir, "CSIFrame")
+	saveDataDir := filepath.Join(exeDir, "Data")
+
+	allPath := filepath.Join(saveAllDir, filename)
+	dataPath := filepath.Join(saveDataDir, filename)
+
+	err1 := os.Remove(allPath)
+	err2 := os.Remove(dataPath)
+
+	if err1 != nil && !errors.Is(err1, os.ErrNotExist) {
+		return fmt.Errorf("删除全量文件失败: %w", err1)
+	}
+	if err2 != nil && !errors.Is(err2, os.ErrNotExist) {
+		return fmt.Errorf("删除数据文件失败: %w", err2)
 	}
 	return nil
 }
