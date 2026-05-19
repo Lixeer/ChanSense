@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="js">
-import { ref, watch, onMounted, defineProps } from "vue";
+import { ref, watch, onMounted } from "vue";
 const props = defineProps({
   amplitude: {
     type: Array,

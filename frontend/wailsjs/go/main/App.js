@@ -14,12 +14,20 @@ export function GetCachedCSI(arg1, arg2) {
   return window['go']['main']['App']['GetCachedCSI'](arg1, arg2);
 }
 
+export function LoadFrameFile(arg1) {
+  return window['go']['main']['App']['LoadFrameFile'](arg1);
+}
+
 export function ReadSavedDataFileName() {
   return window['go']['main']['App']['ReadSavedDataFileName']();
 }
 
 export function Reconnect() {
   return window['go']['main']['App']['Reconnect']();
+}
+
+export function SaveDataSegment(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveDataSegment'](arg1, arg2, arg3, arg4);
 }
 
 export function UpdateSerialConfig(arg1, arg2) {

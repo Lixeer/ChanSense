@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -319,6 +321,9 @@ func (a *App) ReadSavedDataFileName() ([]string, error) {
 	saveAllDir := filepath.Join(exeDir, "CSIFrame")
 	entries, err := os.ReadDir(saveAllDir)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return []string{}, nil // 或者返回 nil, nil，取决于前端期望收到空数组还是 null
+		}
 		return nil, fmt.Errorf("无法读取文件夹: %w", err)
 	}
 	var fileNames []string
@@ -329,4 +334,87 @@ func (a *App) ReadSavedDataFileName() ([]string, error) {
 		}
 	}
 	return fileNames, nil
+}
+
+func (a *App) LoadFrameFile(filename string) error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("获取程序路径失败: %w", err)
+	}
+	exeDir := filepath.Dir(exePath)
+	saveAllDir := filepath.Join(exeDir, "CSIFrame")
+	finalPath := filepath.Join(saveAllDir, filename)
+	data, err := os.ReadFile(finalPath)
+	if err != nil {
+		return fmt.Errorf("读取文件失败: %w", err)
+	}
+	var frames []*CSIFrame
+	err = json.Unmarshal(data, &frames)
+	if err != nil {
+		return fmt.Errorf("解析JSON失败: %w", err)
+	}
+	for _, frame := range frames {
+		runtime.EventsEmit(a.ctx, "load-csi-data", frame)
+		time.Sleep(2 * time.Millisecond) // 模拟数据流入的间隔
+	}
+	return nil
+}
+
+func (a *App) SaveDataSegment(startIdx int, endIdx int, srcFileName string, newfilename string) error {
+	fmt.Printf("准备保存数据段: start=%d, end=%d, srcFile=%s, newFile=%s\n", startIdx, endIdx, srcFileName, newfilename)
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("获取程序路径失败: %w", err)
+	}
+	exeDir := filepath.Dir(exePath)
+	saveAllDir := filepath.Join(exeDir, "CSIFrame")
+	saveDataDir := filepath.Join(exeDir, "Data")
+	srcPath := filepath.Join(saveAllDir, srcFileName)
+	newAllPath := filepath.Join(saveAllDir, newfilename)
+	newDataPath := filepath.Join(saveDataDir, newfilename)
+
+	fileBytes, err := os.ReadFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("读取源文件失败: %v", err)
+	}
+	var fullData []*CSIFrame
+	if err := json.Unmarshal(fileBytes, &fullData); err != nil {
+		return fmt.Errorf("解析JSON失败: %v", err)
+	}
+
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if endIdx > len(fullData) {
+		endIdx = len(fullData)
+	}
+	if startIdx >= endIdx {
+		return fmt.Errorf("非法的截取范围: start=%d, end=%d", startIdx, endIdx)
+	}
+	segmentData := fullData[startIdx:endIdx]
+	justRaws := make([][]int16, len(segmentData))
+	for i, frame := range segmentData {
+		if frame != nil {
+			justRaws[i] = frame.Raw
+		}
+	}
+
+	newJsonAll, err := json.Marshal(segmentData)
+	if err != nil {
+		return fmt.Errorf("序列化新数据失败: %v", err)
+	}
+	err = os.WriteFile(newAllPath, newJsonAll, 0644)
+	if err != nil {
+		return fmt.Errorf("写入新文件失败: %v", err)
+	}
+
+	newJsonData, err := json.Marshal(justRaws)
+	if err != nil {
+		return fmt.Errorf("序列化新数据失败: %v", err)
+	}
+	err = os.WriteFile(newDataPath, newJsonData, 0644)
+	if err != nil {
+		return fmt.Errorf("写入新文件失败: %v", err)
+	}
+	return nil
 }

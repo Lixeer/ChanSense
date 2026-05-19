@@ -11,6 +11,7 @@ export const useLabelStore = defineStore("label", () => {
   }
   function clearLabels() {
     labels.value = [];
+    activeLabel.value = null;
   }
   function removeLabel(label) {
     const index = labels.value.indexOf(label);

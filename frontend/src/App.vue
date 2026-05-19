@@ -131,13 +131,25 @@
 
         <!-- 本地文件列表 -->
         <div class="border h-full overflow-auto flex flex-col whitespace-nowrap" v-if="currentMode === 'edit'">
-          <button class="hover:bg-gray-200 active:bg-gray-300" v-for="name in jsonFiles" :key="name">{{ name }}</button>
+          <button
+            class="hover:bg-gray-200 active:bg-gray-300"
+            v-for="name in jsonFiles"
+            :key="name"
+            @click="
+              () => {
+                handleFileClick(name);
+                LoadFrameFile(name);
+              }
+            "
+          >
+            {{ name }}
+          </button>
         </div>
 
         <!-- 注释 -->
         <div class="mt-auto flex flex-col gap-4">
           <span class="text-sm text-gray-500 border rounded" v-if="saveLog">{{ saveLog }}</span>
-          <span :class="isListening ? 'text-green-500' : 'text-red-400'">空格暂停输入，v暂停输入自动保存</span>
+          <span :class="isListening ? 'text-green-500' : 'text-red-400'">空格暂停，v录制，x剪切</span>
         </div>
       </div>
     </aside>
@@ -173,10 +185,21 @@
           v-if="visibleComponents.includes('polar')"
         />
       </div>
-      <div v-else-if="currentMode === 'edit'">
-        <h2>编辑标记</h2>
-        <div>Index: {{ csiData.index }}</div>
+      <div v-else-if="currentMode === 'edit'" class="flex flex-col gap-8">
+        <div>
+          <h2>编辑标记</h2>
+          <div>Index: {{ csiData.index }}</div>
+        </div>
         <AmplitudeWaterfall :history="MAX_HISTORY || 50" :amplitude="csiData.amplitude || []" />
+        <div>
+          <h2>{{ activeFileName }}</h2>
+          <HistoricalWaterfall
+            :key="activeFileName"
+            :history="activeFileHistory"
+            :amplitude="loadFrame.amplitude || []"
+            @selected="handleWaterfallSelected"
+          />
+        </div>
       </div>
       <div v-else>
         <h2>请选择一个模式</h2>
@@ -194,6 +217,8 @@ import {
   AutoSaveTextToFile,
   ClearSavedData,
   ReadSavedDataFileName,
+  LoadFrameFile,
+  SaveDataSegment,
 } from "../wailsjs/go/main/App";
 import Amplitude from "./components/Amplitude.vue";
 import Phase from "./components/Phase.vue";
@@ -202,6 +227,7 @@ import Polar from "./components/Polar.vue";
 import AmplitudeWaterfall from "./components/AmplitudeWaterfall.vue";
 import { useMagicKeys, whenever, onKeyStroke, useDateFormat } from "@vueuse/core";
 import { useLabelStore } from "./stores/Label";
+import HistoricalWaterfall from "./components/HistoricalWaterfall.vue";
 
 const csiData = ref({});
 const MAX_HISTORY = ref(200);
@@ -212,7 +238,8 @@ const state = reactive({
   isConnected: false,
 });
 const goLog = ref("");
-let unsubscribe = null;
+let unsubscribeCsi = null;
+let unsubscribeLoad = null;
 const componentOptions = [
   { id: "amplitude", label: "幅度", value: "amplitude" },
   { id: "phase", label: "相位", value: "phase" },
@@ -278,7 +305,7 @@ onKeyStroke("v", async () => {
 });
 onMounted(() => {
   // 监听 Go 发送的 "csi-data" 事件
-  unsubscribe = EventsOn("csi-data", (frame) => {
+  unsubscribeCsi = EventsOn("csi-data", (frame) => {
     // console.log("收到 CSI:", frame);
     if (isListening.value) {
       csiData.value = frame;
@@ -306,7 +333,8 @@ const waitForNextIndex = () => {
 
 onUnmounted(() => {
   // 取消监听，防止内存泄漏
-  if (unsubscribe) unsubscribe();
+  if (unsubscribeCsi) unsubscribeCsi();
+  if (unsubscribeLoad) unsubscribeLoad();
 });
 
 const saveLog = ref("");
@@ -314,8 +342,8 @@ async function saveToFile(index, count) {
   const formattedTime = useDateFormat(new Date(), "YYYYMMDD_HHmmss");
 
   const filename = labelStore.activeLabel
-    ? `[${count}]${labelStore.activeLabel}_${formattedTime.value}.json`
-    : `[${count}]${formattedTime.value}.json`;
+    ? `${formattedTime.value}_[${count}]${labelStore.activeLabel}.json`
+    : `${formattedTime.value}_[${count}].json`;
 
   try {
     await AutoSaveTextToFile(index, count, filename); // 调用 Go 方法并传递变量
@@ -379,6 +407,52 @@ onMounted(async () => {
 });
 watch(refreshReadFilesList, async () => {
   readFilesList();
+});
+
+const activeFileName = ref("");
+const activeFileHistory = ref(200);
+const handleFileClick = (fileName) => {
+  activeFileName.value = fileName;
+  const match = fileName.match(/\[(\d+)\]/);
+
+  if (match && match[1]) {
+    activeFileHistory.value = parseInt(match[1], 10);
+    console.log(`成功从文件名解析出历史点数: ${activeFileHistory.value}`);
+  } else {
+    // 如果万一没匹配到（比如用户自己改了文件名），给一个安全的默认值
+    activeFileHistory.value = 200;
+  }
+};
+const loadFrame = ref({});
+onMounted(() => {
+  unsubscribeLoad = EventsOn("load-csi-data", (frame) => {
+    // console.log("加载了数据:", frame);
+    loadFrame.value = frame;
+  });
+});
+
+// 子组件框选数据
+const currentSelection = ref(null);
+const handleWaterfallSelected = (selectionData) => {
+  // console.log("父组件收到选中事件，范围:", startIdx, endIdx, count);
+  currentSelection.value = selectionData;
+};
+onKeyStroke("x", async () => {
+  if (currentSelection.value) {
+    const { startIdx, endIdx, count } = currentSelection.value;
+    const newTimeStr = useDateFormat(new Date(), "YYYYMMDD_HHmmss").value;
+    const activeLabel = labelStore.activeLabel || "";
+    await SaveDataSegment(
+      startIdx,
+      endIdx,
+      activeFileName.value,
+      activeFileName.value.replace(/^\d{8}_\d{6}_\[\d+\].*(\.json)$/, `${newTimeStr}_[${count}]${activeLabel}$1`),
+    );
+    refreshReadFilesList.value++;
+    console.log(`已保存选中数据段 [${startIdx}-${endIdx}] 共 ${count} 条`);
+  } else {
+    alert("请先在瀑布图上框选一个范围！");
+  }
 });
 </script>
 

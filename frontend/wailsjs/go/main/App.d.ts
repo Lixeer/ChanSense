@@ -8,8 +8,12 @@ export function ClearSavedData():Promise<void>;
 
 export function GetCachedCSI(arg1:number,arg2:number):Promise<Array<main.CSIFrame>>;
 
+export function LoadFrameFile(arg1:string):Promise<void>;
+
 export function ReadSavedDataFileName():Promise<Array<string>>;
 
 export function Reconnect():Promise<void>;
+
+export function SaveDataSegment(arg1:number,arg2:number,arg3:string,arg4:string):Promise<void>;
 
 export function UpdateSerialConfig(arg1:string,arg2:number):Promise<void>;
