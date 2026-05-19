@@ -31,7 +31,7 @@ type App struct {
 	csiCache     []*CSIFrame // 缓存切片
 	head         int         // 头指针
 	size         int         // 当前缓存数量
-	maxCacheSize int         // 最大缓存数量：2000
+	maxCacheSize int         // 最大缓存数量
 	index        int
 }
 type CSIFrame struct {
@@ -52,11 +52,12 @@ var config = &serial.Config{
 
 // NewApp creates a new App application struct
 func NewApp() *App {
+	const maxCacheSize = 10000
 	return &App{
-		maxCacheSize: 2000, // 初始化最大缓存限制
+		maxCacheSize: maxCacheSize, // 初始化最大缓存限制
 		head:         0,
 		index:        0,
-		csiCache:     make([]*CSIFrame, 2000),
+		csiCache:     make([]*CSIFrame, maxCacheSize),
 	}
 }
 

@@ -187,7 +187,7 @@
           v-if="visibleComponents.includes('polar')"
         />
       </div>
-      <div v-else-if="currentMode === 'edit'" class="flex flex-col gap-8">
+      <div v-else-if="currentMode === 'edit'" class="flex flex-col gap-4">
         <div>
           <h2>编辑标记</h2>
           <div>Index: {{ csiData.index }}</div>
@@ -245,11 +245,11 @@ const goLog = ref("");
 let unsubscribeCsi = null;
 let unsubscribeLoad = null;
 const componentOptions = [
+  { id: "waterfall", label: "幅度瀑布", value: "waterfall" },
   { id: "amplitude", label: "幅度", value: "amplitude" },
   { id: "phase", label: "相位", value: "phase" },
   { id: "phaseDiff", label: "相位差", value: "phaseDiff" },
   { id: "polar", label: "极坐标", value: "polar" },
-  { id: "waterfall", label: "幅度瀑布", value: "waterfall" },
 ];
 const visibleComponents = ref(componentOptions.map((item) => item.value)); // 默认全部显示
 const currentMode = ref("view"); // 默认展示模式
@@ -268,7 +268,7 @@ onMounted(() => {
   // 监听连接状态事件
   EventsOn("connection-status", (status) => {
     goLog.value = `[${new Date().toLocaleTimeString()}] ${status}\n`;
-    console.log("连接状态:", status);
+    // console.log("连接状态:", status);
     if (status.includes("连接成功")) {
       state.isConnected = true;
     } else {
@@ -351,7 +351,7 @@ async function saveToFile(index, count) {
 
   try {
     await AutoSaveTextToFile(index, count, filename); // 调用 Go 方法并传递变量
-    console.log("保存成功，文件名：", filename);
+    // console.log("保存成功，文件名：", filename);
     saveLog.value = `已保存[${index - count}-${index}] ${count} 条数据到 ${filename}`;
     refreshReadFilesList.value++;
   } catch (e) {
@@ -387,11 +387,11 @@ async function clearSavedData() {
       saveLog.value = "数据已全部清空";
       refreshReadFilesList.value++;
     } catch (error) {
-      console.error("清空数据失败:", error);
+      // console.error("清空数据失败:", error);
       alert("清空失败");
     }
   } else {
-    console.log("用户取消了清空操作");
+    // console.log("用户取消了清空操作");
   }
 }
 
@@ -401,9 +401,9 @@ const refreshReadFilesList = ref(0);
 const readFilesList = async () => {
   try {
     jsonFiles.value = await ReadSavedDataFileName();
-    console.log("已保存数据文件列表:", jsonFiles.value);
+    // console.log("已保存数据文件列表:", jsonFiles.value);
   } catch (e) {
-    console.error("读取文件列表失败:", e);
+    // console.error("读取文件列表失败:", e);
   }
 };
 onMounted(async () => {
@@ -421,7 +421,7 @@ const handleFileClick = (fileName) => {
 
   if (match && match[1]) {
     activeFileHistory.value = parseInt(match[1], 10);
-    console.log(`成功从文件名解析出历史点数: ${activeFileHistory.value}`);
+    // console.log(`成功从文件名解析出历史点数: ${activeFileHistory.value}`);
   } else {
     // 如果万一没匹配到（比如用户自己改了文件名），给一个安全的默认值
     activeFileHistory.value = 200;
@@ -453,16 +453,13 @@ onKeyStroke("x", async () => {
       activeFileName.value.replace(/^\d{8}_\d{6}_\[\d+\].*(\.json)$/, `${newTimeStr}_[${count}]${activeLabel}$1`),
     );
     refreshReadFilesList.value++;
-    console.log(`已保存选中数据段 [${startIdx}-${endIdx}] 共 ${count} 条`);
+    // console.log(`已保存选中数据段 [${startIdx}-${endIdx}] 共 ${count} 条`);
   } else {
     alert("请先在瀑布图上框选一个范围！");
   }
 });
 
 const isFixed = ref(false);
-watch(isFixed, () => {
-  console.log("isFixed changed:", isFixed.value);
-});
 </script>
 
 <style scoped>

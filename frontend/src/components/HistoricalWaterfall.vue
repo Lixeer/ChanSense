@@ -155,7 +155,7 @@ const handleMouseUp = () => {
     endFrame = Math.floor(Math.max(confirmedStart.value, confirmedEnd.value) / step.value);
   }
 
-  console.log("Selected frames:", startFrame, endFrame);
+  // console.log("Selected frames:", startFrame, endFrame);
   emit("selected", {
     startIdx: startFrame,
     endIdx: endFrame,
