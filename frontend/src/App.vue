@@ -141,6 +141,7 @@
               () => {
                 handleFileClick(name);
                 LoadFrameFile(name);
+                activeCount++;
               }
             "
           >
@@ -196,7 +197,7 @@
         <div>
           <h2>{{ activeFileName }}</h2>
           <HistoricalWaterfall
-            :key="activeFileName"
+            :key="activeCount"
             :history="activeFileHistory"
             :amplitude="loadFrame.amplitude || []"
             :is-fixed="isFixed"
@@ -415,6 +416,7 @@ watch(refreshReadFilesList, async () => {
 
 const activeFileName = ref("");
 const activeFileHistory = ref(200);
+const activeCount = ref(0);
 const handleFileClick = (fileName) => {
   activeFileName.value = fileName;
   const match = fileName.match(/\[(\d+)\]/);

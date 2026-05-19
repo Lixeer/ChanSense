@@ -33,6 +33,9 @@ type App struct {
 	size         int         // 当前缓存数量
 	maxCacheSize int         // 最大缓存数量
 	index        int
+
+	// 文件读取
+	loadCancel context.CancelFunc
 }
 type CSIFrame struct {
 	Index     int       `json:"index"`
@@ -207,7 +210,6 @@ func (a *App) UpdateSerialConfig(name string, baud int) {
 // 	if err != nil || savePath == "" {
 // 		return err
 // 	}
-
 // 	// 写入文件
 // 	return os.WriteFile(savePath, []byte(content), 0644)
 // }
@@ -338,6 +340,19 @@ func (a *App) ReadSavedDataFileName() ([]string, error) {
 }
 
 func (a *App) LoadFrameFile(filename string) error {
+	a.mu.Lock()
+	if a.loadCancel != nil {
+		a.loadCancel() // 取消之前的加载任务
+	}
+	loadCtx, cancel := context.WithCancel(context.Background())
+	a.loadCancel = cancel
+	a.mu.Unlock()
+
+	go a.doLoadFrameFile(loadCtx, filename)
+	return nil
+}
+
+func (a *App) doLoadFrameFile(ctx context.Context, filename string) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("获取程序路径失败: %w", err)
@@ -354,9 +369,15 @@ func (a *App) LoadFrameFile(filename string) error {
 	if err != nil {
 		return fmt.Errorf("解析JSON失败: %w", err)
 	}
+
 	for _, frame := range frames {
-		runtime.EventsEmit(a.ctx, "load-csi-data", frame)
-		time.Sleep(2 * time.Millisecond) // 模拟数据流入的间隔
+		select {
+		case <-ctx.Done():
+			return nil // 任务被取消，退出加载
+		default:
+			runtime.EventsEmit(a.ctx, "load-csi-data", frame)
+			time.Sleep(2 * time.Millisecond) // 模拟数据流入的间隔
+		}
 	}
 	return nil
 }
