@@ -21,9 +21,11 @@
         </div>
 
         <!-- 历史数据点数 -->
-        <div class="flex gap-2">
-          <span>历史数据点数:</span>
+        <div class="flex items-center gap-2">
+          <span class="text-sm">历史数据点:</span>
           <input class="border w-16" v-model.number="MAX_HISTORY" type="number" placeholder="历史数据点数" />
+          <span class="text-sm">固定框选</span>
+          <input type="checkbox" v-model="isFixed" />
         </div>
 
         <!-- 配置 -->
@@ -197,6 +199,8 @@
             :key="activeFileName"
             :history="activeFileHistory"
             :amplitude="loadFrame.amplitude || []"
+            :is-fixed="isFixed"
+            :max-history="MAX_HISTORY"
             @selected="handleWaterfallSelected"
           />
         </div>
@@ -453,6 +457,11 @@ onKeyStroke("x", async () => {
   } else {
     alert("请先在瀑布图上框选一个范围！");
   }
+});
+
+const isFixed = ref(false);
+watch(isFixed, () => {
+  console.log("isFixed changed:", isFixed.value);
 });
 </script>
 

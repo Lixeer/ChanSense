@@ -28,6 +28,14 @@ const props = defineProps({
     type: Number,
     default: 200,
   },
+  maxHistory: {
+    type: Number,
+    default: 200,
+  },
+  isFixed: {
+    type: Boolean,
+    default: false,
+  },
 });
 const emit = defineEmits(["selected"]);
 const canvasRef = ref(null);
@@ -35,6 +43,7 @@ const step = ref(4);
 const MAX_AMPLITUDE = ref(75);
 const width = computed(() => props.history * step.value);
 const currentFrame = ref(0);
+const fixedPixelWidth = computed(() => props.maxHistory * step.value);
 
 const prevFrame = ref(null);
 onMounted(() => {
@@ -89,14 +98,27 @@ const currentX = ref(0);
 const confirmedStart = ref(0);
 const confirmedEnd = ref(0);
 const { elementX, elementY, isOutside } = useMouseInElement(canvasRef);
+
+// 固定宽度时的左边界
+const getFixedBoxLeft = (mouseX) => {
+  const halfW = fixedPixelWidth.value / 2;
+  // 鼠标在中心，向左偏移半宽，并限制在 [0, 画布总宽 - 框总宽] 之间
+  return clamp(mouseX - halfW, 0, Math.max(0, width.value - fixedPixelWidth.value));
+};
 // 鼠标按下：开始框选
 const handleMouseDown = () => {
   // 如果滑出了画布范围，不触发
   if (isOutside.value) return;
 
   isSelecting.value = true;
-  startX.value = clamp(elementX.value, 0, width.value);
-  currentX.value = startX.value;
+
+  if (props.isFixed) {
+    currentX.value = clamp(elementX.value, 0, width.value);
+  } else {
+    startX.value = clamp(elementX.value, 0, width.value);
+    currentX.value = startX.value;
+  }
+
   // 监听全局的 mousemove 和 mouseup，确保鼠标滑出画布也能正常结束
   window.addEventListener("mousemove", handleMouseMove);
   window.addEventListener("mouseup", handleMouseUp);
@@ -116,11 +138,22 @@ const handleMouseUp = () => {
   window.removeEventListener("mousemove", handleMouseMove);
   window.removeEventListener("mouseup", handleMouseUp);
 
-  confirmedStart.value = startX.value;
-  confirmedEnd.value = currentX.value;
-  // 计算帧范围
-  const startFrame = Math.floor(Math.min(confirmedStart.value, confirmedEnd.value) / step.value);
-  const endFrame = Math.floor(Math.max(confirmedStart.value, confirmedEnd.value) / step.value);
+  let startFrame = 0;
+  let endFrame = 0;
+
+  if (props.isFixed) {
+    const finalLeft = getFixedBoxLeft(currentX.value);
+    confirmedStart.value = finalLeft;
+    confirmedEnd.value = finalLeft + fixedPixelWidth.value;
+    startFrame = Math.floor(finalLeft / step.value);
+    endFrame = startFrame + Math.floor(props.maxHistory);
+  } else {
+    confirmedStart.value = startX.value;
+    confirmedEnd.value = currentX.value;
+    // 计算帧范围
+    startFrame = Math.floor(Math.min(confirmedStart.value, confirmedEnd.value) / step.value);
+    endFrame = Math.floor(Math.max(confirmedStart.value, confirmedEnd.value) / step.value);
+  }
 
   console.log("Selected frames:", startFrame, endFrame);
   emit("selected", {
@@ -131,6 +164,12 @@ const handleMouseUp = () => {
 };
 
 const boxLeft = computed(() => {
+  if (props.isFixed) {
+    if (isSelecting.value) {
+      return getFixedBoxLeft(elementX.value);
+    }
+    return confirmedStart.value;
+  }
   if (isSelecting.value) {
     const clampedX = clamp(elementX.value, 0, width.value);
     return Math.min(startX.value, clampedX);
@@ -139,6 +178,12 @@ const boxLeft = computed(() => {
 });
 
 const boxWidth = computed(() => {
+  if (props.isFixed) {
+    if (isSelecting.value) {
+      return fixedPixelWidth.value;
+    }
+    return confirmedEnd.value - confirmedStart.value;
+  }
   if (isSelecting.value) {
     const clampedX = clamp(elementX.value, 0, width.value);
     return Math.abs(clampedX - startX.value);
